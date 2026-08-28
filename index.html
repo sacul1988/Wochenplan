@@ -525,8 +525,8 @@
   const SHORT  = ["Mo","Di","Mi","Do","Fr","Sa","So"];
   const DAY_SLOTS = 96;                     // 15-Minuten-Schritte eines ganzen Tages
   // Kartenzeiten zählen ab Mitternacht: Slot 24 ist 06:00.
-  const first = () => state.startH * 4;     // erster gezeigter Schritt
-  const last  = () => state.endH   * 4;     // letzter gezeigter Schritt
+  const first = () => state.startQ;         // erster gezeigter Schritt
+  const last  = () => state.endQ;           // letzter gezeigter Schritt
   const rows  = () => last() - first();     // Anzahl der Zeilen
   const ROWH = 18, HEADH = 40, GUT = 52;   // Höhe einer Viertelstunde
   const PADL = 14, PADT = 14, PADR = 18, PADB = 28;   // Luft am Rand des Rasters
@@ -539,7 +539,7 @@
 
   /* ---------- Zustand ---------- */
   let state = { cards:[], seq:1, z:1, theme:"paper", weekend:true,
-                startH:6, endH:23, full:false, v:3 };
+                startQ:24, endQ:92, full:false, v:4 };
   let colW = 120, boardW = 0, canvasH = 0;
   let editingId = null, activeId = null;
 
@@ -598,6 +598,13 @@
       if(d.v === 2){
         d.cards.forEach(c => { c.start = (c.start || 0) * 2; c.dur = (c.dur || 1) * 2; });
         d.v = 3;
+      }
+      // Fassung 3 kannte den Anzeigebereich nur in vollen Stunden
+      if(d.v === 3){
+        d.startQ = (d.startH === undefined ? 6  : d.startH) * 4;
+        d.endQ   = (d.endH   === undefined ? 23 : d.endH  ) * 4;
+        delete d.startH; delete d.endH;
+        d.v = 4;
       }
       state = Object.assign(state, d);
     }catch(e){ /* noch nichts gespeichert oder unlesbar */ }
@@ -710,9 +717,11 @@
     const g = document.createElement("div");
     g.className = "gutter"; g.style.width = GUT + "px";
     let ticks = "";
-    for(let h=state.startH; h<=state.endH; h++)
-      ticks += '<div class="tick" style="top:'+(PADT+(h-state.startH)*ROWH*4)+'px">'+
-               (h>=24?"24":String(h).padStart(2,"0"))+':00</div>';
+    const tick = sl => '<div class="tick" style="top:'+(PADT+(sl-first())*ROWH)+'px">'+
+                       hhmm(sl)+'</div>';
+    if(first() % 4) ticks += tick(first());        // angebrochene Stunde am Anfang
+    for(let sl = first() + (first()%4 ? 4 - first()%4 : 0); sl <= last(); sl += 4)
+      ticks += tick(sl);
     g.innerHTML = ticks;
     canvas.appendChild(g);
     g.style.transform = "translateX("+Math.max(0, scroll.scrollLeft)+"px)";
@@ -1140,12 +1149,14 @@
     document.querySelectorAll('meta[name="theme-color"]').forEach(m=>m.content = bar);
   }
   const menu = $("#menu");
+  // Beginn und Ende lassen sich in Viertelstunden setzen
+  const MIN_SPANNE = 4;                     // mindestens eine Stunde bleibt sichtbar
   function fillRangePickers(){
-    const opt = (h, sel) => '<option value="'+h+'"'+(h===sel?" selected":"")+'>'+
-                            (h>=24?"24":String(h).padStart(2,"0"))+':00</option>';
+    const opt = (sl, sel) => '<option value="'+sl+'"'+(sl===sel?" selected":"")+'>'+
+                             hhmm(sl)+'</option>';
     let a = "", b = "";
-    for(let h = 0; h <= 22; h++) a += opt(h, state.startH);
-    for(let h = 1; h <= 24; h++) b += opt(h, state.endH);
+    for(let sl = 0; sl <= DAY_SLOTS - MIN_SPANNE; sl++) a += opt(sl, state.startQ);
+    for(let sl = MIN_SPANNE; sl <= DAY_SLOTS; sl++)     b += opt(sl, state.endQ);
     $("#mFrom").innerHTML = a;
     $("#mTo").innerHTML = b;
   }
@@ -1159,16 +1170,18 @@
       : n + " Karten liegen außerhalb dieser Zeit und werden gerade nicht angezeigt. Sie sind nicht gelöscht.";
   }
   function applyRange(){
-    // mindestens zwei Stunden, Ende immer nach dem Beginn
-    if(state.endH <= state.startH + 1) state.endH = Math.min(24, state.startH + 2);
+    // Ende immer nach dem Beginn, und dazwischen mindestens eine Stunde
+    if(state.endQ < state.startQ + MIN_SPANNE)
+      state.endQ = Math.min(DAY_SLOTS, state.startQ + MIN_SPANNE);
     fillRangePickers(); showOutsideNote(); measure(); render();
   }
   $("#mFrom").addEventListener("change", e => {
-    state.startH = +e.target.value; applyRange();
+    state.startQ = +e.target.value; applyRange();
   });
   $("#mTo").addEventListener("change", e => {
-    state.endH = +e.target.value;
-    if(state.startH >= state.endH - 1) state.startH = Math.max(0, state.endH - 2);
+    state.endQ = +e.target.value;
+    if(state.startQ > state.endQ - MIN_SPANNE)
+      state.startQ = Math.max(0, state.endQ - MIN_SPANNE);
     applyRange();
   });
 
@@ -1207,13 +1220,14 @@
   function exportRange(){
     const shown = state.cards.filter(c => c.day !== null && c.day < dayCount()
       && c.start < last() && c.start + c.dur > first());
-    const lo = first(), hi = last();
+    // auf die volle Stunde vor dem Beginn und nach dem Ende aufmachen
+    const lo = first() - first() % 4;
+    const hi = last() % 4 ? last() + (4 - last() % 4) : last();
     if(!shown.length) return { from: lo, to: hi };
     let from = Math.max(lo, Math.min(...shown.map(c => c.start)) - 2);
     let to   = Math.min(hi, Math.max(...shown.map(c => c.start + c.dur)) + 2);
-    from -= (from - lo) % 4;                                 // auf volle Stunden
-    const restTo = (to - lo) % 4;
-    if(restTo) to = Math.min(hi, to + (4 - restTo));
+    from -= from % 4;                                        // auf volle Stunden
+    if(to % 4) to = Math.min(hi, to + (4 - to % 4));
     while(to - from < 24){                                   // mindestens sechs Stunden
       if(from > lo) from -= 4; else if(to < hi) to += 4; else break;
     }
