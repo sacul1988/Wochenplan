@@ -334,14 +334,13 @@
   }
   .card.stacked .paper{box-shadow:inset 0 0 0 1px rgba(255,255,255,.35)}
 
-  /* bis 45 Minuten ist kaum Platz – Text schrumpft, die Lasche weicht nach unten aus */
+  /* bis 45 Minuten ist kaum Platz – die Schrift bleibt aber so groß wie
+     überall sonst, nur Zeilenabstand, Zeilenzahl und Lasche weichen aus */
   .card.tiny .paper{padding:3px 8px 2px}
-  .card.tiny .t{font-size:15px;line-height:1.05;-webkit-line-clamp:2}
+  .card.tiny .t{line-height:1.05;-webkit-line-clamp:2}
   .card.tiny .handle{bottom:-28px;height:24px;align-items:center;padding-top:0}
-  .card.micro .t{font-size:13px;-webkit-line-clamp:1}
+  .card.micro .t{-webkit-line-clamp:1}
   .card.micro .n{display:none}
-  [data-theme="clip"] .card.tiny .t{font-size:11.5px}
-  [data-theme="clip"] .card.micro .t{font-size:11px}
 
   .dropzone{position:absolute;border:2px dashed rgba(58,50,38,.45);
     background:rgba(255,252,240,.28);border-radius:2px;pointer-events:none;z-index:4}
@@ -1407,14 +1406,15 @@
 
         // Text
         ctx.save(); ctx.clip();
-        const flach = h < 70;                    // kurze Karte, kleinere Schrift
+        // Schrift bleibt auf jeder Kartengroesse gleich gross; bei kurzen
+        // Karten ("flach") ist nur der Kopfabstand knapper und es passt
+        // eine Zeile weniger hin, bevor der Rest abgeschnitten wird.
+        const flach = h < 70;
         const padX = paper ? 16 : 18;
         const padT = flach ? (paper ? 26 : 22) : (paper ? 40 : 34);
         ctx.fillStyle = cssVar("--ink");
-        ctx.font = flach
-          ? (paper ? "500 27px Caveat, cursive" : "600 18px Karla, sans-serif")
-          : (paper ? "500 38px Caveat, cursive" : "600 25px Karla, sans-serif");
-        const lh = flach ? (paper ? 27 : 22) : (paper ? 38 : 30);
+        ctx.font = paper ? "500 38px Caveat, cursive" : "600 25px Karla, sans-serif";
+        const lh = paper ? 38 : 30;
         const titleLines = wrapText(ctx, c.title || "Ohne Titel", w - padX*1.6, flach ? 2 : 3);
         titleLines.forEach((ln, k) => ctx.fillText(ln, padX, padT + k*lh));
         if(c.note && !flach){
