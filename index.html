@@ -260,7 +260,7 @@
   }
   .gutter{position:absolute;left:0;top:0;bottom:0;z-index:500;background:var(--kraft-dark);
     border-right:1px solid rgba(0,0,0,.2);box-shadow:2px 0 6px rgba(0,0,0,.12);will-change:transform}
-  .tick{position:absolute;right:6px;font-size:10.5px;font-weight:700;color:var(--ink-soft);transform:translateY(-1px)}
+  .tick{position:absolute;right:6px;font-size:10.5px;font-weight:700;color:var(--ink-soft);transform:translateY(-50%)}
 
   /* ---------- Kärtchen ---------- */
   .card{
@@ -679,7 +679,11 @@
     canvas.style.width = boardW + "px";
     canvas.style.backgroundSize =
       "100% "+(ROWH*4)+"px, 100% "+(ROWH*2)+"px, "+colW+"px 100%";
-    canvas.style.backgroundPosition = "0 "+PADT+"px, 0 "+PADT+"px, "+COL0+"px 0";
+    // first()%4 Viertelstunden ragen vor die erste volle Stunde des Ausschnitts,
+    // first()%2 vor die erste halbe - die Linie sitzt entsprechend davor (negativ).
+    const vollOffset = PADT - (first()%4)*ROWH;
+    const halbOffset = PADT - (first()%2)*ROWH;
+    canvas.style.backgroundPosition = "0 "+vollOffset+"px, 0 "+halbOffset+"px, "+COL0+"px 0";
     head.style.width = boardW + "px";
     renderHead();
   }
@@ -719,11 +723,13 @@
     const g = document.createElement("div");
     g.className = "gutter"; g.style.width = GUT + "px";
     let ticks = "";
-    const tick = sl => '<div class="tick" style="top:'+(PADT+(sl-first())*ROWH)+'px">'+
-                       hhmm(sl)+'</div>';
-    if(first() % 4) ticks += tick(first());        // angebrochene Stunde am Anfang
+    // Bei vollen Stunden auf die Mitte der 2px dicken Linie zielen (+1px);
+    // die angebrochene Stunde am Anfang hat keine Linie, sondern sitzt am Rand.
+    const tick = (sl, mitteLinie) => '<div class="tick" style="top:'+
+                 (PADT+(sl-first())*ROWH+(mitteLinie?1:0))+'px">'+hhmm(sl)+'</div>';
+    if(first() % 4) ticks += tick(first(), false);
     for(let sl = first() + (first()%4 ? 4 - first()%4 : 0); sl <= last(); sl += 4)
-      ticks += tick(sl);
+      ticks += tick(sl, true);
     g.innerHTML = ticks;
     canvas.appendChild(g);
     g.style.transform = "translate3d("+Math.max(0, scroll.scrollLeft)+"px,0,0)";
