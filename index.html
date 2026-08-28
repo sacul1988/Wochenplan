@@ -321,6 +321,13 @@
     opacity:0;transition:opacity .15s ease;
   }
   .tray-wrap.more::after{opacity:1}
+  /* Nach dem Halten ist die Karte greifbar – sie hebt sich sichtbar ab.
+     Kein transform, das steckt bei jeder Karte als Neigung im style-Attribut. */
+  .card.armed{
+    filter:drop-shadow(0 8px 12px rgba(40,28,10,.40)) drop-shadow(0 2px 2px rgba(40,28,10,.28));
+  }
+  .card.armed .paper{box-shadow:inset 0 0 0 2px rgba(255,255,255,.75)}
+  [data-theme="clip"] .card.armed .paper{box-shadow:inset 0 0 0 2px var(--ink)}
   .card.drag{
     position:fixed;z-index:2000;pointer-events:none;
     filter:drop-shadow(0 10px 14px rgba(40,28,10,.42)) drop-shadow(0 2px 2px rgba(40,28,10,.3));
@@ -766,7 +773,33 @@
   /* ---------- Ziehen ---------- */
   let drag = null, ghost = null, autoTimer = null;
 
+  // Auf dem Brett gilt am Finger: kurz antippen und sofort ziehen schiebt die
+  // Ansicht, erst nach kurzem Halten lässt sich die Karte selbst verschieben.
+  // Sonst bliebe zwischen vielen Karten kaum noch Fläche zum Scrollen übrig.
+  const HALT_MS = 320;   // so lange muss der Finger liegen bleiben
+  const RUHE_PX = 8;     // bis dahin gilt der Finger als ruhig
+
   function pointFrom(e){ return {x:e.clientX, y:e.clientY}; }
+
+  // Schwung nach dem Loslassen, damit das Schieben sich nicht abgehackt anfühlt
+  let glide = null;
+  function stopGlide(){ if(glide){ cancelAnimationFrame(glide); glide = null; } }
+  function startGlide(vx, vy){
+    stopGlide();
+    if(Math.abs(vx) < 1.5 && Math.abs(vy) < 1.5) return;
+    const step = ()=>{
+      vx *= .94; vy *= .94;
+      if(Math.abs(vx) < .3 && Math.abs(vy) < .3){ glide = null; return; }
+      scroll.scrollLeft -= vx; scroll.scrollTop -= vy;
+      glide = requestAnimationFrame(step);
+    };
+    glide = requestAnimationFrame(step);
+  }
+  function disarm(){
+    if(!drag) return;
+    clearTimeout(drag.haltTimer);
+    drag.el.classList.remove("armed");
+  }
 
   function onDown(e){
     const cardEl = e.target.closest(".card");
@@ -779,11 +812,23 @@
     const w = cardEl.offsetWidth, h = cardEl.offsetHeight;
     const boxLeft = r.left + r.width/2  - w/2;
     const boxTop  = r.top  + r.height/2 - h/2;
+    stopGlide();
+    // Nur der Finger muss halten. Mit Maus oder Stift bleibt es beim
+    // sofortigen Ziehen – dort scrollt man ohnehin mit Rad oder Leiste.
+    const halten = e.pointerType === "touch" && !onHandle && c.day !== null;
     drag = { id:c.id, el:cardEl, mode: onHandle ? "resize" : "pending",
              sx:e.clientX, sy:e.clientY,
              dx:e.clientX-boxLeft, dy:e.clientY-boxTop,
              w:w, h:h, fromTray:c.day===null, moved:false, t:Date.now(),
-             sl0:trayStrip.scrollLeft, dur0:c.dur, dur:c.dur };
+             sl0:trayStrip.scrollLeft, dur0:c.dur, dur:c.dur,
+             halten:halten, frei:!halten, vx:0, vy:0 };
+    if(halten){
+      drag.haltTimer = setTimeout(()=>{
+        if(!drag || drag.mode !== "pending") return;
+        drag.frei = true;                     // ab jetzt hängt die Karte am Finger
+        drag.el.classList.add("armed");
+      }, HALT_MS);
+    }
     if(onHandle) cardEl.classList.add("resizing");
     cardEl.setPointerCapture && cardEl.setPointerCapture(e.pointerId);
     e.preventDefault();
@@ -831,10 +876,32 @@
         if(ady >= 12)      startDrag();
         else if(adx >= 16) drag.mode = "strip";
         else return;
+      } else if(!drag.frei){
+        // Der Finger ist losgezogen, bevor die Haltezeit um war: Ansicht schieben
+        if(adx < RUHE_PX && ady < RUHE_PX) return;
+        clearTimeout(drag.haltTimer);
+        drag.mode = "pan";
+        drag.px0 = scroll.scrollLeft; drag.py0 = scroll.scrollTop;
+        drag.sx = e.clientX; drag.sy = e.clientY;   // ohne Sprung weiterschieben
+        drag.lx = e.clientX; drag.ly = e.clientY;
       } else {
         if(adx < 6 && ady < 6) return;
+        disarm();
         startDrag();
       }
+    }
+    if(drag.mode === "pan"){
+      const zielX = drag.px0 - (e.clientX - drag.sx);
+      const zielY = drag.py0 - (e.clientY - drag.sy);
+      scroll.scrollLeft = zielX; scroll.scrollTop = zielY;
+      // Am Anschlag den Ursprung nachziehen, sonst muss man beim Zurückwischen
+      // erst den Leerweg aufholen, den der Finger über den Rand hinaus lief.
+      drag.px0 += scroll.scrollLeft - zielX;
+      drag.py0 += scroll.scrollTop  - zielY;
+      drag.vx = e.clientX - drag.lx; drag.vy = e.clientY - drag.ly;
+      drag.lx = e.clientX; drag.ly = e.clientY;
+      drag.moved = true;
+      return;
     }
     if(drag.mode === "strip"){
       trayStrip.scrollLeft = drag.sl0 - (e.clientX - drag.sx);
@@ -873,6 +940,14 @@
     autoScroll(e.clientX, e.clientY);
   }
 
+  // Auf das Antippen folgt noch ein click. Der träfe den eben erst
+  // eingeblendeten Vorhang und schlösse den Dialog auf der Stelle wieder.
+  function schluckeKlick(){
+    const weg = e => { e.stopPropagation(); e.preventDefault(); };
+    document.addEventListener("click", weg, {capture:true, once:true});
+    setTimeout(()=>document.removeEventListener("click", weg, true), 500);
+  }
+
   const badge = $("#badge");
   function showBadge(e, text){
     badge.textContent = text;
@@ -901,6 +976,8 @@
     if(!drag) return;
     clearTimeout(autoTimer);
     hideBadge();
+    disarm();
+    if(drag.mode === "pan"){ startGlide(drag.vx, drag.vy); drag = null; return; }
     const c = byId(drag.id);
     const wasMove = drag.mode === "move";
     const quick = !drag.moved && Date.now()-drag.t < 600;
@@ -917,8 +994,8 @@
       render();
     } else if(quick && drag.mode === "pending"){
       // Erstes Antippen wählt aus, zweites öffnet die Karte
-      if(c.day === null){ openEditor(c.id); }
-      else if(activeId === c.id){ openEditor(c.id); }
+      if(c.day === null){ openEditor(c.id); schluckeKlick(); }
+      else if(activeId === c.id){ openEditor(c.id); schluckeKlick(); }
       else { activeId = c.id; c.z = state.z++; render(); }
     } else if(drag.mode === "resize"){
       c.dur = drag.dur;
@@ -934,6 +1011,8 @@
   document.addEventListener("pointercancel", ()=>{
     hideBadge();
     if(!drag) return;
+    disarm();
+    if(drag.mode === "pan"){ drag = null; return; }
     if(drag.mode === "move"){ drag.el.remove(); if(ghost){ ghost.remove(); ghost = null; } }
     if(drag.mode === "resize"){ byId(drag.id).dur = drag.dur; }
     tray.classList.remove("drop-tray");
