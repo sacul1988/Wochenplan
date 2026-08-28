@@ -85,8 +85,8 @@
     --tray-label:rgba(255,255,255,.72);
     --head:#B8A47E;
     --head-ink:#4A3F2E;
-    --l1:rgba(58,50,38,.20);  /* volle Stunde */
-    --l2:rgba(58,50,38,.08);  /* halbe Stunde */
+    --l1:rgba(58,50,38,.34);  /* volle Stunde – kräftig und 2 px stark */
+    --l2:rgba(58,50,38,.11);  /* halbe Stunde – dünner Strich dazwischen */
     --l3:rgba(58,50,38,.18);  /* Tagesspalten */
     --display:var(--hand);
     --brand-size:26px;
@@ -114,8 +114,8 @@
     --tray-label:rgba(27,33,48,.5);
     --head:#FFFFFF;
     --head-ink:#39415A;
-    --l1:rgba(20,26,40,.14);
-    --l2:rgba(20,26,40,.055);
+    --l1:rgba(20,26,40,.26);
+    --l2:rgba(20,26,40,.08);
     --l3:rgba(20,26,40,.10);
     --display:var(--body);
     --brand-size:18px;
@@ -251,7 +251,7 @@
     position:relative;
     background-color:var(--kraft);
     background-image:
-      linear-gradient(to bottom, var(--l1) 0 1px, transparent 1px),
+      linear-gradient(to bottom, var(--l1) 0 2px, transparent 2px),
       linear-gradient(to bottom, var(--l2) 0 1px, transparent 1px),
       linear-gradient(to right,  var(--l3) 0 1px, transparent 1px);
   }
@@ -531,9 +531,11 @@
   const ROWH = 18, HEADH = 40, GUT = 52;   // Höhe einer Viertelstunde
   const PADL = 14, PADT = 14, PADR = 18, PADB = 28;   // Luft am Rand des Rasters
   const COL0 = GUT + PADL;                            // linke Kante der Montagsspalte
-  const PAPERS = ["#F2C14E","#EF8354","#7FB685","#6FA8DC","#B49BD8","#F0A9BE","#A8C256","#EDE3CC"];
+  const PAPERS = ["#F2C14E","#EF8354","#7FB685","#6FA8DC","#B49BD8","#F0A9BE","#A8C256","#EDE3CC",
+                  "#E0665E","#58C2B4","#7C8CE0","#CE87C4","#C79A62","#5E9E76","#8FD0EF","#9B7BA8"];
   // gleiche Reihenfolge, aber kühler und kräftiger für das Clip-Design
-  const CLIPS  = ["#E9A81C","#E2603A","#2E9E6B","#2F7DD1","#7C5CD6","#D6437E","#6E9B1F","#64748B"];
+  const CLIPS  = ["#E9A81C","#E2603A","#2E9E6B","#2F7DD1","#7C5CD6","#D6437E","#6E9B1F","#64748B",
+                  "#D93A34","#109C93","#4C5FD0","#B0459F","#A9701F","#177A4E","#1FA5D8","#6D3E86"];
   const DURS = [[1,"15 Min"],[2,"30 Min"],[3,"45 Min"],[4,"1 Std"],
                 [6,"1½ Std"],[8,"2 Std"],[12,"3 Std"],[16,"4 Std"]];
 
@@ -1339,13 +1341,16 @@
       if(sl < to) ctx.fillText(hhmm(sl), gridX - 18, y + 26);
     }
 
-    // Raster
-    ctx.lineWidth = 1;
-    for(let sl = from; sl <= to; sl += 2){          // volle und halbe Stunden
-      const y = Math.round(gridY + (sl - from)*rowH) + .5;
-      ctx.strokeStyle = (sl % 4 === 0) ? cssVar("--l1") : cssVar("--l2");
+    // Raster: volle Stunde kräftig und doppelt so stark, halbe Stunde fein
+    for(let sl = from; sl <= to; sl += 2){
+      const voll = sl % 4 === 0;
+      const yb = Math.round(gridY + (sl - from)*rowH);
+      ctx.lineWidth   = voll ? 2 : 1;
+      ctx.strokeStyle = cssVar(voll ? "--l1" : "--l2");
+      const y = voll ? yb : yb + .5;              // dünne Linie auf halbe Pixel setzen
       ctx.beginPath(); ctx.moveTo(gridX, y); ctx.lineTo(EX_W - M, y); ctx.stroke();
     }
+    ctx.lineWidth = 1;
     ctx.strokeStyle = cssVar("--l3");
     for(let d = 0; d <= days; d++){
       const x = Math.round(gridX + colW*d) + .5;
