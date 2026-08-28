@@ -1025,18 +1025,14 @@
   /* ---------- Kopfzeilen-Aktionen ---------- */
   $("#addBtn").addEventListener("click", ()=>newCard());
   /* ---------- Vollbild ---------- */
+  // Kein Aufruf der Fullscreen-Schnittstelle: die brachte auf dem iPad den
+  // Systemhinweis "zum Beenden nach unten streichen" mit. Die App räumt
+  // stattdessen selbst auf – Kopfzeile und Stapel treten ab, das Raster
+  // bekommt die ganze Fläche, und beendet wird über den eigenen Knopf.
   function setFull(on){
     state.full = on;
     document.documentElement.dataset.full = on ? "1" : "0";
     if(!on) showTrayOverlay(false);
-    const el = document.documentElement;
-    try{
-      if(on && !document.fullscreenElement){
-        (el.requestFullscreen || el.webkitRequestFullscreen || (()=>{})).call(el);
-      } else if(!on && document.fullscreenElement){
-        (document.exitFullscreen || document.webkitExitFullscreen || (()=>{})).call(document);
-      }
-    }catch(e){ /* Gerät kann kein echtes Vollbild – die App macht trotzdem Platz */ }
     measure(); render(); save();
   }
   function showTrayOverlay(on){
@@ -1049,9 +1045,10 @@
   });
   $("#fullBtn").addEventListener("click", ()=>setFull(true));
   $("#fullExit").addEventListener("click", ()=>setFull(false));
-  // Wird das Vollbild vom System beendet (Escape, Wischgeste), gehen wir mit
-  document.addEventListener("fullscreenchange", ()=>{
-    if(!document.fullscreenElement && state.full) setFull(false);
+  // Escape beendet das Vollbild, wie man es von der Tastatur erwartet –
+  // aber nur, wenn nicht gerade ein Dialog offen ist.
+  document.addEventListener("keydown", e => {
+    if(e.key === "Escape" && state.full && !backdrop.classList.contains("on")) setFull(false);
   });
 
   $("#themeBtn").addEventListener("click", ()=>{
