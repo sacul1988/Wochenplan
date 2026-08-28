@@ -630,7 +630,7 @@
   }
   function tilt(seed){
     if(state.theme !== "paper") return 0;      // Clips liegen gerade
-    const r = rng(seed*7+3); return (r()*2-1)*1.9;
+    const r = rng(seed*7+3); return (r()*2-1)*1.15;
   }
   function accent(hex){                         // Farbe im aktuellen Design
     const i = PAPERS.indexOf(hex);
