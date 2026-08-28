@@ -1,8 +1,12 @@
 // Hält die App offline verfügbar und macht sie installierbar.
-const CACHE = "wochenplan-v8";
+const CACHE = "wochenplan-v9";
 const FILES = [
   "./", "./index.html", "./manifest.webmanifest",
-  "./icon-192.png", "./icon-512.png", "./icon-maskable-512.png", "./apple-touch-icon.png"
+  "./icon-192.png", "./icon-512.png",
+  "./icon-maskable-192.png", "./icon-maskable-512.png", "./apple-touch-icon.png",
+  // Schriften mitnehmen, sonst fällt die App offline auf Systemschriften zurück
+  "./fonts/caveat-latin.woff2", "./fonts/caveat-latin-ext.woff2",
+  "./fonts/karla-latin.woff2", "./fonts/karla-latin-ext.woff2"
 ];
 
 self.addEventListener("install", e => {
