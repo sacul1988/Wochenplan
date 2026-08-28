@@ -1,5 +1,5 @@
 // Hält die App offline verfügbar und macht sie installierbar.
-const CACHE = "wochenplan-v2";
+const CACHE = "wochenplan-v8";
 const FILES = [
   "./", "./index.html", "./manifest.webmanifest",
   "./icon-192.png", "./icon-512.png", "./icon-maskable-512.png", "./apple-touch-icon.png"

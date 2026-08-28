@@ -121,6 +121,36 @@
   .btn.ghost{background:rgba(255,255,255,.12);color:var(--brand-ink);border-color:rgba(255,255,255,.3);box-shadow:none}
   .btn:focus-visible{outline:2px solid #F2C14E;outline-offset:2px}
 
+  /* Vollbild: Kopfzeile und Stapel treten ab, das Raster bekommt die ganze Fläche */
+  [data-full="1"] .topbar, [data-full="1"] .tray{display:none}
+  [data-full="1"][data-tray="1"] .tray{display:block}
+  /* ohne Kopfzeile muss die Tagesleiste selbst unter der Statusleiste bleiben */
+  [data-full="1"] .app{padding-top:env(safe-area-inset-top);background:var(--head)}
+  .fullbar{
+    display:none;position:fixed;z-index:600;gap:8px;
+    bottom:calc(14px + env(safe-area-inset-bottom));
+    right:calc(14px + env(safe-area-inset-right));
+  }
+  [data-full="1"] .fullbar{display:flex}
+  .fullexit{
+    font-family:var(--body);font-size:12.5px;font-weight:600;color:var(--ink);
+    background:rgba(255,255,255,.86);border:1px solid rgba(0,0,0,.18);
+    border-radius:18px;padding:9px 14px;cursor:pointer;
+    box-shadow:0 3px 12px rgba(0,0,0,.28);
+    -webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);
+  }
+  .fullexit.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+  /* auf schmalen Geräten weicht erst der Titel, dann die Beschriftung des Vollbilds */
+  @media (max-width:520px){ .brand{font-size:21px} .topbar{gap:6px} }
+  @media (max-width:470px){
+    .brand{display:none}
+    .topbar{justify-content:flex-end}
+  }
+  @media (max-width:365px){
+    #fullBtn{font-size:0;padding:7px 10px}
+    #fullBtn::after{content:"⛶";font-size:16px;line-height:1}
+  }
+
   /* ---------- Stapel ---------- */
   .tray{
     background:var(--tray);
@@ -145,7 +175,6 @@
   .scroll{
     flex:1;overflow:auto;position:relative;
     overscroll-behavior:none;background:var(--kraft);
-    padding-bottom:env(safe-area-inset-bottom);
   }
   .board{position:relative}
   .head{
@@ -229,11 +258,29 @@
   }
   .card.resizing .handle span{opacity:.9;width:52px}
   .card.small{width:132px;height:70px;position:relative;flex:none}
+  .tray-strip{scroll-behavior:auto}   /* muss dem Finger genau folgen */
+  /* Verlauf am rechten Rand zeigt an, dass es weitergeht */
+  .tray-wrap{position:relative}
+  .tray-wrap::after{
+    content:"";position:absolute;top:0;bottom:8px;right:0;width:28px;pointer-events:none;
+    background:linear-gradient(to right, transparent, var(--tray));
+    opacity:0;transition:opacity .15s ease;
+  }
+  .tray-wrap.more::after{opacity:1}
   .card.drag{
     position:fixed;z-index:2000;pointer-events:none;
     filter:drop-shadow(0 10px 14px rgba(40,28,10,.42)) drop-shadow(0 2px 2px rgba(40,28,10,.3));
   }
   .card.stacked .paper{box-shadow:inset 0 0 0 1px rgba(255,255,255,.35)}
+
+  /* bis 45 Minuten ist kaum Platz – Text schrumpft, die Lasche weicht nach unten aus */
+  .card.tiny .paper{padding:3px 8px 2px}
+  .card.tiny .t{font-size:15px;line-height:1.05;-webkit-line-clamp:2}
+  .card.tiny .handle{bottom:-28px;height:24px;align-items:center;padding-top:0}
+  .card.micro .t{font-size:13px;-webkit-line-clamp:1}
+  .card.micro .n{display:none}
+  [data-theme="clip"] .card.tiny .t{font-size:11.5px}
+  [data-theme="clip"] .card.micro .t{font-size:11px}
 
   .dropzone{position:absolute;border:2px dashed rgba(58,50,38,.45);
     background:rgba(255,252,240,.28);border-radius:2px;pointer-events:none;z-index:4}
@@ -279,9 +326,19 @@
     border-radius:var(--btn-radius);padding:13px 13px;
   }
   .mi b{font-weight:600;font-size:12px;color:var(--ink-soft)}
+  .mi.range{cursor:default}
+  .mi.range:active{transform:none}
+  .pickers{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--ink-soft)}
+  .pickers select{
+    font-family:var(--body);font-size:14px;font-weight:600;color:var(--ink);
+    background:var(--sheet-bg);border:1px solid rgba(58,50,38,.3);
+    border-radius:var(--btn-radius);padding:6px 8px;
+  }
+  #mOutside{margin:-2px 0 10px}
   .mi.warn{color:#9A3412;border-color:rgba(154,52,18,.35)}
   .mi:active{transform:translateY(1px)}
   .sheet-actions{display:flex;gap:8px;margin-top:18px;align-items:center}
+  .sheet-actions.tight{margin-top:8px}
   .sheet-actions .btn{flex:1;padding:11px}
   .btn.primary{background:var(--ink);color:var(--sheet-bg);border-color:var(--ink)}
   .btn.danger{flex:none;background:var(--sheet-bg);color:#9A3412;border-color:rgba(154,52,18,.45)}
@@ -294,12 +351,13 @@
     <div class="brand">Wochenplan</div>
     <button class="btn" id="addBtn">+ Karte</button>
     <button class="btn ghost" id="themeBtn">Design</button>
+    <button class="btn ghost" id="fullBtn">Vollbild</button>
     <button class="btn ghost" id="moreBtn" aria-label="Weitere Aktionen">•••</button>
   </div>
 
   <div class="tray" id="tray">
     <div class="tray-label">Stapel &middot; noch nicht eingeplant</div>
-    <div class="tray-strip" id="trayStrip"></div>
+    <div class="tray-wrap" id="trayWrap"><div class="tray-strip" id="trayStrip"></div></div>
   </div>
 
   <div class="scroll" id="scroll">
@@ -312,11 +370,24 @@
   </div>
 </div>
 
+<div class="fullbar">
+  <button class="fullexit" id="trayBtn">Stapel</button>
+  <button class="fullexit" id="fullExit">Vollbild beenden</button>
+</div>
 <div id="badge"></div>
 <div class="backdrop" id="backdrop"></div>
 <div class="sheet" id="menu">
   <h2>Wochenplan</h2>
   <button class="mi" id="mWeekend"><span>Wochenende anzeigen</span><b id="mWeekendState">an</b></button>
+  <div class="mi range">
+    <span>Angezeigte Zeit</span>
+    <span class="pickers">
+      <select id="mFrom" aria-label="Beginn"></select>
+      <span>bis</span>
+      <select id="mTo" aria-label="Ende"></select>
+    </span>
+  </div>
+  <div class="hint" id="mOutside" hidden></div>
   <button class="mi" id="mPdf"><span>Als PDF sichern</span><b>Querformat</b></button>
   <button class="mi" id="mJpg"><span>Als JPEG sichern</span><b>Bild</b></button>
   <button class="mi warn" id="mClear"><span>Alle Karten löschen</span></button>
@@ -335,8 +406,11 @@
   <label class="f">Dauer</label>
   <div class="chips" id="fDur"></div>
   <div class="sheet-actions">
-    <button class="btn danger" id="fDelete">Löschen</button>
+    <button class="btn" id="fCopy">Duplizieren</button>
     <button class="btn" id="fUnplace">In den Stapel</button>
+  </div>
+  <div class="sheet-actions tight">
+    <button class="btn danger" id="fDelete">Löschen</button>
     <button class="btn primary" id="fDone">Fertig</button>
   </div>
   <div class="hint">Karte ziehen verschiebt sie. Antippen wählt sie aus und holt sie nach vorn – dann die Lasche an der Unterkante nach unten oder oben ziehen, um sie zu verlängern oder zu kürzen. Nochmal antippen öffnet sie.</div>
@@ -388,19 +462,24 @@
   /* ---------- Konstanten ---------- */
   const DAYS   = ["Montag","Dienstag","Mittwoch","Donnerstag","Freitag","Samstag","Sonntag"];
   const SHORT  = ["Mo","Di","Mi","Do","Fr","Sa","So"];
-  const START_H = 6, END_H = 23;
-  const SLOTS = (END_H - START_H) * 2;      // 30-Minuten-Raster
-  const ROWH = 34, HEADH = 40, GUT = 52;
+  const DAY_SLOTS = 96;                     // 15-Minuten-Schritte eines ganzen Tages
+  // Kartenzeiten zählen ab Mitternacht: Slot 24 ist 06:00.
+  const first = () => state.startH * 4;     // erster gezeigter Schritt
+  const last  = () => state.endH   * 4;     // letzter gezeigter Schritt
+  const rows  = () => last() - first();     // Anzahl der Zeilen
+  const ROWH = 18, HEADH = 40, GUT = 52;   // Höhe einer Viertelstunde
   const PADL = 14, PADT = 14, PADR = 18, PADB = 28;   // Luft am Rand des Rasters
   const COL0 = GUT + PADL;                            // linke Kante der Montagsspalte
   const PAPERS = ["#F2C14E","#EF8354","#7FB685","#6FA8DC","#B49BD8","#F0A9BE","#A8C256","#EDE3CC"];
   // gleiche Reihenfolge, aber kühler und kräftiger für das Clip-Design
   const CLIPS  = ["#E9A81C","#E2603A","#2E9E6B","#2F7DD1","#7C5CD6","#D6437E","#6E9B1F","#64748B"];
-  const DURS = [[1,"30 Min"],[2,"1 Std"],[3,"1½ Std"],[4,"2 Std"],[6,"3 Std"],[8,"4 Std"]];
+  const DURS = [[1,"15 Min"],[2,"30 Min"],[3,"45 Min"],[4,"1 Std"],
+                [6,"1½ Std"],[8,"2 Std"],[12,"3 Std"],[16,"4 Std"]];
 
   /* ---------- Zustand ---------- */
-  let state = { cards:[], seq:1, z:1, theme:"paper", weekend:true };
-  let colW = 120, boardW = 0, canvasH = PADT + SLOTS*ROWH + PADB;
+  let state = { cards:[], seq:1, z:1, theme:"paper", weekend:true,
+                startH:6, endH:23, full:false, v:3 };
+  let colW = 120, boardW = 0, canvasH = 0;
   let editingId = null, activeId = null;
 
   const $ = s => document.querySelector(s);
@@ -451,7 +530,15 @@
       const raw = await store.read();
       if(!raw) return;
       const d = JSON.parse(raw);
-      if(d && Array.isArray(d.cards)) state = Object.assign(state, d);
+      if(!d || !Array.isArray(d.cards)) return;
+      // Fassung 1 zählte die Kartenzeit ab 06:00, jetzt wird ab Mitternacht gezählt
+      if(!d.v){ d.cards.forEach(c => { c.start = (c.start || 0) + 12; }); d.v = 2; }
+      // Fassung 2 rechnete in halben Stunden, jetzt in Viertelstunden
+      if(d.v === 2){
+        d.cards.forEach(c => { c.start = (c.start || 0) * 2; c.dur = (c.dur || 1) * 2; });
+        d.v = 3;
+      }
+      state = Object.assign(state, d);
     }catch(e){ /* noch nichts gespeichert oder unlesbar */ }
   }
 
@@ -490,11 +577,26 @@
   }
   function cardFill(c){ return "background:" + swatchFill(c.color); }
   function esc(s){ return String(s||"").replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
-  function hhmm(slot){ const m = START_H*60 + slot*30; return String(Math.floor(m/60)).padStart(2,"0")+":"+String(m%60).padStart(2,"0"); }
+  function hhmm(slot){
+    if(slot >= DAY_SLOTS) return "24:00";
+    const m = slot*15;
+    return String(Math.floor(m/60)).padStart(2,"0")+":"+String(m%60).padStart(2,"0");
+  }
   function byId(id){ return state.cards.find(c=>c.id===id); }
   function dayCount(){ return state.weekend ? 7 : 5; }
 
   /* ---------- Maße ---------- */
+  // Höhe des geschützten Bereichs unten, damit man Karten darüber schieben kann
+  function safeBottom(){
+    const probe = document.createElement("div");
+    probe.style.cssText = "position:fixed;bottom:0;left:0;width:0;" +
+                          "height:env(safe-area-inset-bottom);pointer-events:none";
+    document.body.appendChild(probe);
+    const h = probe.offsetHeight || 0;
+    probe.remove();
+    return h;
+  }
+
   function measure(){
     const n = dayCount();
     const avail = scroll.clientWidth - COL0 - PADR;
@@ -502,10 +604,11 @@
     if(colW*n < avail) colW = Math.floor(avail/n);
     boardW = COL0 + colW*n + PADR;
     board.style.width = boardW + "px";
+    canvasH = PADT + rows()*ROWH + PADB + safeBottom();
     canvas.style.height = canvasH + "px";
     canvas.style.width = boardW + "px";
     canvas.style.backgroundSize =
-      "100% "+(ROWH*2)+"px, 100% "+ROWH+"px, "+colW+"px 100%";
+      "100% "+(ROWH*4)+"px, 100% "+(ROWH*2)+"px, "+colW+"px 100%";
     canvas.style.backgroundPosition = "0 "+PADT+"px, 0 "+PADT+"px, "+COL0+"px 0";
     head.style.width = boardW + "px";
     renderHead();
@@ -531,6 +634,7 @@
     // Stapel
     const loose = state.cards.filter(c=>c.day===null);
     trayStrip.innerHTML = loose.length ? "" : '<div class="tray-empty">Leer – tippe auf „+ Karte“</div>';
+    requestAnimationFrame(updateTrayHint);
     loose.forEach(c=>{
       const el = document.createElement("div");
       el.className = "card small"; el.dataset.id = c.id;
@@ -545,8 +649,9 @@
     const g = document.createElement("div");
     g.className = "gutter"; g.style.width = GUT + "px";
     let ticks = "";
-    for(let h=START_H; h<=END_H; h++)
-      ticks += '<div class="tick" style="top:'+(PADT+(h-START_H)*ROWH*2)+'px">'+String(h).padStart(2,"0")+':00</div>';
+    for(let h=state.startH; h<=state.endH; h++)
+      ticks += '<div class="tick" style="top:'+(PADT+(h-state.startH)*ROWH*4)+'px">'+
+               (h>=24?"24":String(h).padStart(2,"0"))+':00</div>';
     g.innerHTML = ticks;
     canvas.appendChild(g);
     g.style.transform = "translateX("+Math.max(0, scroll.scrollLeft)+"px)";
@@ -556,7 +661,7 @@
     [...state.cards].sort((a,b)=>a.z-b.z).forEach((c,i)=>rank.set(c.id, i));
 
     for(let d=0; d<dayCount(); d++){
-      const list = state.cards.filter(c=>c.day===d)
+      const list = state.cards.filter(c=>c.day===d && c.start < last() && c.start + c.dur > first())
         .sort((a,b)=> a.start-b.start || a.z-b.z);
       list.forEach((c,i)=>{
         let over = 0;
@@ -566,10 +671,11 @@
         }
         const ox = over*9, oy = over*7;
         const el = document.createElement("div");
-        el.className = "card" + (over?" stacked":"") + (c.id===activeId?" active":"");
+        el.className = "card" + (over?" stacked":"") + (c.id===activeId?" active":"") +
+                       (c.dur<=3 ? " tiny" : "") + (c.dur<=2 ? " micro" : "");
         el.dataset.id = c.id;
         el.style.left = (COL0 + d*colW + 5 + ox) + "px";
-        el.style.top  = (PADT + c.start*ROWH + 3 + oy) + "px";
+        el.style.top  = (PADT + (c.start - first())*ROWH + 3 + oy) + "px";
         el.style.width  = (colW - 14) + "px";
         el.style.height = (c.dur*ROWH - 7) + "px";
         el.style.zIndex = Math.min(400, 10 + rank.get(c.id));
@@ -581,6 +687,13 @@
     save();
   }
 
+  function updateTrayHint(){
+    const el = $("#trayWrap");
+    const rest = trayStrip.scrollWidth - trayStrip.clientWidth - trayStrip.scrollLeft;
+    el.classList.toggle("more", rest > 4);
+  }
+  trayStrip.addEventListener("scroll", updateTrayHint, {passive:true});
+
   scroll.addEventListener("scroll", ()=>{
     const g = canvas.querySelector(".gutter");
     if(g) g.style.transform = "translateX("+Math.max(0, scroll.scrollLeft)+"px)";
@@ -590,8 +703,9 @@
   function newCard(day, start){
     const c = { id: state.seq++, title:"", note:"",
       color: PAPERS[(state.seq*3)%PAPERS.length],
-      day: (day===undefined?null:day), start: (start===undefined?16:start),
-      dur: 2, z: state.z++ };
+      day: (day===undefined?null:day),
+      start: (start===undefined ? Math.min(last()-4, first()+32) : start),
+      dur: 4, z: state.z++ };
     state.cards.push(c); activeId = (c.day===null ? null : c.id); render(); openEditor(c.id, true);
   }
 
@@ -605,11 +719,17 @@
     if(!cardEl) return;
     const c = byId(+cardEl.dataset.id); if(!c) return;
     const onHandle = !!e.target.closest("[data-handle]");
+    // Bei gedrehten Karten ist das umschließende Rechteck größer als die Karte.
+    // Deshalb die echte Layoutbox aus der Mitte des Rechtecks zurückrechnen.
     const r = cardEl.getBoundingClientRect();
+    const w = cardEl.offsetWidth, h = cardEl.offsetHeight;
+    const boxLeft = r.left + r.width/2  - w/2;
+    const boxTop  = r.top  + r.height/2 - h/2;
     drag = { id:c.id, el:cardEl, mode: onHandle ? "resize" : "pending",
-             sx:e.clientX, sy:e.clientY, dx:e.clientX-r.left, dy:e.clientY-r.top,
-             w:r.width, h:r.height, fromTray:c.day===null, moved:false, t:Date.now(),
-             dur0:c.dur, dur:c.dur };
+             sx:e.clientX, sy:e.clientY,
+             dx:e.clientX-boxLeft, dy:e.clientY-boxTop,
+             w:w, h:h, fromTray:c.day===null, moved:false, t:Date.now(),
+             sl0:trayStrip.scrollLeft, dur0:c.dur, dur:c.dur };
     if(onHandle) cardEl.classList.add("resizing");
     cardEl.setPointerCapture && cardEl.setPointerCapture(e.pointerId);
     e.preventDefault();
@@ -640,20 +760,38 @@
     let slot = Math.round((ly - PADT - 3) / ROWH);
     day = Math.max(0, Math.min(dayCount()-1, day));
     const c = byId(drag.id);
-    slot = Math.max(0, Math.min(SLOTS - c.dur, slot));
+    slot = first() + Math.max(0, Math.min(rows() - c.dur, slot));
     return {day, slot};
   }
 
   function onMove(e){
     if(!drag) return;
     if(drag.mode === "pending"){
-      if(Math.abs(e.clientX-drag.sx) < 6 && Math.abs(e.clientY-drag.sy) < 6) return;
-      startDrag();
+      const adx = Math.abs(e.clientX - drag.sx), ady = Math.abs(e.clientY - drag.sy);
+      const schiebbar = drag.fromTray &&
+                        trayStrip.scrollWidth > trayStrip.clientWidth + 2;
+      if(schiebbar){
+        // Erst bei deutlicher Bewegung entscheiden, sonst gewinnt das Zittern
+        // der Fingerspitze. Senkrecht hat Vorrang: die Karte muss immer
+        // herauszubekommen sein.
+        if(ady >= 12)      startDrag();
+        else if(adx >= 16) drag.mode = "strip";
+        else return;
+      } else {
+        if(adx < 6 && ady < 6) return;
+        startDrag();
+      }
+    }
+    if(drag.mode === "strip"){
+      trayStrip.scrollLeft = drag.sl0 - (e.clientX - drag.sx);
+      drag.moved = true;
+      updateTrayHint();
+      return;
     }
     if(drag.mode === "resize"){
       const c = byId(drag.id);
       const steps = Math.round((e.clientY - drag.sy) / ROWH);
-      const dur = Math.max(1, Math.min(SLOTS - c.start, drag.dur0 + steps));
+      const dur = Math.max(1, Math.min(last() - c.start, drag.dur0 + steps));
       if(dur !== drag.dur){
         drag.dur = dur; drag.moved = true;
         drag.el.style.height = (dur*ROWH - 7) + "px";
@@ -673,7 +811,7 @@
       const c = byId(drag.id);
       ghost.style.display = "block";
       ghost.style.left = (COL0 + cell.day*colW + 5) + "px";
-      ghost.style.top  = (PADT + cell.slot*ROWH + 3) + "px";
+      ghost.style.top  = (PADT + (cell.slot - first())*ROWH + 3) + "px";
       ghost.style.width  = (colW - 14) + "px";
       ghost.style.height = (c.dur*ROWH - 7) + "px";
       showBadge(e, SHORT[cell.day] + "  " + hhmm(cell.slot) + "–" + hhmm(cell.slot + c.dur));
@@ -762,9 +900,9 @@
     const day = Math.floor((e.clientX - r.left - COL0)/colW);
     const slot = Math.floor((e.clientY - r.top - PADT)/ROWH);
     tapStart = null;
-    if(day<0 || day>=dayCount() || slot<0 || slot>=SLOTS) return;
+    if(day<0 || day>=dayCount() || slot<0 || slot>=rows()) return;
     if(activeId !== null){ activeId = null; render(); return; }
-    newCard(day, Math.min(slot, SLOTS-2));
+    newCard(day, first() + Math.min(slot, rows()-4));
   });
 
   /* ---------- Editor ---------- */
@@ -800,7 +938,7 @@
   $("#fDur").addEventListener("click", e=>{
     const ch = e.target.closest(".chip"); if(!ch) return;
     const c = byId(editingId);
-    c.dur = Math.min(+ch.dataset.d, SLOTS - c.start);
+    c.dur = Math.min(+ch.dataset.d, last() - c.start);
     [...$("#fDur").children].forEach(n=>n.classList.toggle("sel", +n.dataset.d===c.dur));
   });
   $("#fDone").addEventListener("click", closeEditor);
@@ -815,10 +953,53 @@
     render();
   });
   $("#fUnplace").addEventListener("click", ()=>{ byId(editingId).day = null; closeEditor(); });
+  $("#fCopy").addEventListener("click", ()=>{
+    const c = byId(editingId); if(!c) return;
+    // laufende Eingaben zuerst in die Karte übernehmen
+    c.title = $("#fTitle").value.trim();
+    c.note  = $("#fNote").value.trim();
+    const kopie = Object.assign({}, c, { id: state.seq++, z: state.z++ });
+    state.cards.push(kopie);
+    // Die Kopie liegt an derselben Stelle und wird durch den Stapelversatz sichtbar
+    activeId = kopie.day === null ? null : kopie.id;
+    editingId = null;
+    backdrop.classList.remove("on"); sheet.classList.remove("on");
+    render();
+  });
   $("#fTitle").addEventListener("keydown", e=>{ if(e.key==="Enter") closeEditor(); });
 
   /* ---------- Kopfzeilen-Aktionen ---------- */
   $("#addBtn").addEventListener("click", ()=>newCard());
+  /* ---------- Vollbild ---------- */
+  function setFull(on){
+    state.full = on;
+    document.documentElement.dataset.full = on ? "1" : "0";
+    if(!on) showTrayOverlay(false);
+    const el = document.documentElement;
+    try{
+      if(on && !document.fullscreenElement){
+        (el.requestFullscreen || el.webkitRequestFullscreen || (()=>{})).call(el);
+      } else if(!on && document.fullscreenElement){
+        (document.exitFullscreen || document.webkitExitFullscreen || (()=>{})).call(document);
+      }
+    }catch(e){ /* Gerät kann kein echtes Vollbild – die App macht trotzdem Platz */ }
+    measure(); render(); save();
+  }
+  function showTrayOverlay(on){
+    document.documentElement.dataset.tray = on ? "1" : "0";
+    $("#trayBtn").classList.toggle("on", on);
+    if(on) requestAnimationFrame(updateTrayHint);
+  }
+  $("#trayBtn").addEventListener("click", ()=>{
+    showTrayOverlay(document.documentElement.dataset.tray !== "1");
+  });
+  $("#fullBtn").addEventListener("click", ()=>setFull(true));
+  $("#fullExit").addEventListener("click", ()=>setFull(false));
+  // Wird das Vollbild vom System beendet (Escape, Wischgeste), gehen wir mit
+  document.addEventListener("fullscreenchange", ()=>{
+    if(!document.fullscreenElement && state.full) setFull(false);
+  });
+
   $("#themeBtn").addEventListener("click", ()=>{
     state.theme = state.theme === "paper" ? "clip" : "paper";
     applyTheme(); measure(); render();
@@ -829,8 +1010,41 @@
     document.querySelectorAll('meta[name="theme-color"]').forEach(m=>m.content = bar);
   }
   const menu = $("#menu");
+  function fillRangePickers(){
+    const opt = (h, sel) => '<option value="'+h+'"'+(h===sel?" selected":"")+'>'+
+                            (h>=24?"24":String(h).padStart(2,"0"))+':00</option>';
+    let a = "", b = "";
+    for(let h = 0; h <= 22; h++) a += opt(h, state.startH);
+    for(let h = 1; h <= 24; h++) b += opt(h, state.endH);
+    $("#mFrom").innerHTML = a;
+    $("#mTo").innerHTML = b;
+  }
+  function showOutsideNote(){
+    const n = state.cards.filter(c => c.day !== null &&
+      (c.start >= last() || c.start + c.dur <= first())).length;
+    const el = $("#mOutside");
+    el.hidden = n === 0;
+    el.textContent = n === 1
+      ? "Eine Karte liegt außerhalb dieser Zeit und wird gerade nicht angezeigt. Sie ist nicht gelöscht."
+      : n + " Karten liegen außerhalb dieser Zeit und werden gerade nicht angezeigt. Sie sind nicht gelöscht.";
+  }
+  function applyRange(){
+    // mindestens zwei Stunden, Ende immer nach dem Beginn
+    if(state.endH <= state.startH + 1) state.endH = Math.min(24, state.startH + 2);
+    fillRangePickers(); showOutsideNote(); measure(); render();
+  }
+  $("#mFrom").addEventListener("change", e => {
+    state.startH = +e.target.value; applyRange();
+  });
+  $("#mTo").addEventListener("change", e => {
+    state.endH = +e.target.value;
+    if(state.startH >= state.endH - 1) state.startH = Math.max(0, state.endH - 2);
+    applyRange();
+  });
+
   function openMenu(){
     $("#mWeekendState").textContent = state.weekend ? "an" : "aus";
+    fillRangePickers(); showOutsideNote();
     backdrop.classList.add("on"); menu.classList.add("on");
   }
   function closeMenu(){ backdrop.classList.remove("on"); menu.classList.remove("on"); }
@@ -839,7 +1053,7 @@
   $("#mWeekend").addEventListener("click", ()=>{
     state.weekend = !state.weekend;
     $("#mWeekendState").textContent = state.weekend ? "an" : "aus";
-    measure(); render();
+    showOutsideNote(); measure(); render();
   });
   $("#mClear").addEventListener("click", ()=>{
     if(confirm("Alle Karten dieser Woche löschen?")){
@@ -861,14 +1075,17 @@
 
   // Zeitausschnitt: nur der Bereich, in dem tatsächlich Karten liegen
   function exportRange(){
-    const shown = state.cards.filter(c => c.day !== null && c.day < dayCount());
-    if(!shown.length) return { from: 4, to: 28 };          // 08:00–20:00
-    let from = Math.min(...shown.map(c => c.start)) - 1;
-    let to   = Math.max(...shown.map(c => c.start + c.dur)) + 1;
-    from = Math.max(0, from - (from % 2));                   // auf volle Stunden
-    to   = Math.min(SLOTS, to + (to % 2));
-    while(to - from < 12){                                   // mindestens sechs Stunden
-      if(from > 0) from -= 2; else if(to < SLOTS) to += 2; else break;
+    const shown = state.cards.filter(c => c.day !== null && c.day < dayCount()
+      && c.start < last() && c.start + c.dur > first());
+    const lo = first(), hi = last();
+    if(!shown.length) return { from: lo, to: hi };
+    let from = Math.max(lo, Math.min(...shown.map(c => c.start)) - 2);
+    let to   = Math.min(hi, Math.max(...shown.map(c => c.start + c.dur)) + 2);
+    from -= (from - lo) % 4;                                 // auf volle Stunden
+    const restTo = (to - lo) % 4;
+    if(restTo) to = Math.min(hi, to + (4 - restTo));
+    while(to - from < 24){                                   // mindestens sechs Stunden
+      if(from > lo) from -= 4; else if(to < hi) to += 4; else break;
     }
     return { from, to };
   }
@@ -936,16 +1153,16 @@
     ctx.fillStyle = cssVar("--ink-soft");
     ctx.textAlign = "right";
     ctx.font = "700 22px Karla, sans-serif";
-    for(let sl = from; sl <= to; sl += 2){
+    for(let sl = from; sl <= to; sl += 4){
       const y = gridY + (sl - from)*rowH;
       if(sl < to) ctx.fillText(hhmm(sl), gridX - 18, y + 26);
     }
 
     // Raster
     ctx.lineWidth = 1;
-    for(let sl = from; sl <= to; sl += 1){
+    for(let sl = from; sl <= to; sl += 2){          // volle und halbe Stunden
       const y = Math.round(gridY + (sl - from)*rowH) + .5;
-      ctx.strokeStyle = (sl % 2 === 0) ? cssVar("--l1") : cssVar("--l2");
+      ctx.strokeStyle = (sl % 4 === 0) ? cssVar("--l1") : cssVar("--l2");
       ctx.beginPath(); ctx.moveTo(gridX, y); ctx.lineTo(EX_W - M, y); ctx.stroke();
     }
     ctx.strokeStyle = cssVar("--l3");
@@ -998,13 +1215,17 @@
 
         // Text
         ctx.save(); ctx.clip();
-        const padX = paper ? 16 : 18, padT = paper ? 40 : 34;
+        const flach = h < 70;                    // kurze Karte, kleinere Schrift
+        const padX = paper ? 16 : 18;
+        const padT = flach ? (paper ? 26 : 22) : (paper ? 40 : 34);
         ctx.fillStyle = cssVar("--ink");
-        ctx.font = paper ? "500 38px Caveat, cursive" : "600 25px Karla, sans-serif";
-        const lh = paper ? 38 : 30;
-        const titleLines = wrapText(ctx, c.title || "Ohne Titel", w - padX*1.6, 3);
+        ctx.font = flach
+          ? (paper ? "500 27px Caveat, cursive" : "600 18px Karla, sans-serif")
+          : (paper ? "500 38px Caveat, cursive" : "600 25px Karla, sans-serif");
+        const lh = flach ? (paper ? 27 : 22) : (paper ? 38 : 30);
+        const titleLines = wrapText(ctx, c.title || "Ohne Titel", w - padX*1.6, flach ? 2 : 3);
         titleLines.forEach((ln, k) => ctx.fillText(ln, padX, padT + k*lh));
-        if(c.note){
+        if(c.note && !flach){
           ctx.fillStyle = cssVar("--ink-soft");
           ctx.font = "400 21px Karla, sans-serif";
           const noteY = padT + titleLines.length*lh + 6;
@@ -1086,19 +1307,21 @@
   (async function init(){
     await load();
     if(!state.cards.length){
-      const demo = [
-        [0, 4, 4, "Team-Jour-fixe", "Küche, mit Kaffee", 0],
-        [0, 14, 3, "Konzept schreiben", "ohne Handy", 2],
-        [2, 8, 2, "Sport", "", 3],
-        [4, 22, 4, "Kino", "Tickets vorher", 5]
+      const demo = [                       // Viertelstunden-Schritte ab Mitternacht
+        [0, 32, 8, "Team-Jour-fixe", "Küche, mit Kaffee", 0],   // 08:00–10:00
+        [0, 53, 6, "Konzept schreiben", "ohne Handy", 2],       // 13:15–14:45
+        [2, 40, 4, "Sport", "", 3],                             // 10:00–11:00
+        [4, 68, 8, "Kino", "Tickets vorher", 5]                 // 17:00–19:00
       ];
       demo.forEach(d=>state.cards.push({ id:state.seq++, title:d[3], note:d[4],
         color:PAPERS[d[5]], day:d[0], start:d[1], dur:d[2], z:state.z++ }));
       state.cards.push({ id:state.seq++, title:"Einkauf", note:"", color:PAPERS[6],
-        day:null, start:16, dur:2, z:state.z++ });
+        day:null, start:56, dur:4, z:state.z++ });
     }
-    applyTheme(); measure(); render();
-    scroll.scrollTop = Math.max(0, PADT + (8-START_H)*ROWH*2 - 10);
+    applyTheme();
+    document.documentElement.dataset.full = state.full ? "1" : "0";
+    measure(); render();
+    scroll.scrollTop = Math.max(0, PADT + (32 - first())*ROWH - 10);
   })();
 })();
 </script>
