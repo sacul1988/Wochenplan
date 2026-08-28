@@ -450,9 +450,13 @@
   <div class="hint" id="mOutside" hidden></div>
   <button class="mi" id="mPdf"><span>Als PDF sichern</span><b>Querformat</b></button>
   <button class="mi" id="mJpg"><span>Als JPEG sichern</span><b>Bild</b></button>
+  <button class="mi" id="mExport"><span>Plan als Datei sichern</span><b>.json</b></button>
+  <button class="mi" id="mImport"><span>Plan aus Datei laden</span><b>.json</b></button>
+  <input type="file" id="mImportFile" accept="application/json,.json" hidden>
   <button class="mi warn" id="mClear"><span>Alle Karten löschen</span></button>
   <div class="sheet-actions"><button class="btn primary" id="mClose">Schließen</button></div>
   <div class="hint">Gesichert wird der Ausschnitt, in dem Karten liegen – im Querformat auf A4, passend zum Ausdrucken.</div>
+  <div class="hint">Die Datei nimmt den ganzen Plan mit allen Karten und Einstellungen mit – zum Sichern oder für ein anderes Gerät. Laden ersetzt den Plan auf diesem Gerät.</div>
 </div>
 
 <div class="sheet" id="sheet">
@@ -539,8 +543,9 @@
                 [6,"1½ Std"],[8,"2 Std"],[12,"3 Std"],[16,"4 Std"]];
 
   /* ---------- Zustand ---------- */
-  let state = { cards:[], seq:1, z:1, theme:"paper", weekend:true,
-                startQ:24, endQ:92, full:false, v:4 };
+  const defaultState = () => ({ cards:[], seq:1, z:1, theme:"paper", weekend:true,
+                                 startQ:24, endQ:92, full:false, v:4 });
+  let state = defaultState();
   let colW = 120, boardW = 0, canvasH = 0;
   let editingId = null, activeId = null;
 
@@ -587,27 +592,34 @@
   addEventListener("pagehide", writeNow);
   addEventListener("visibilitychange", ()=>{ if(document.hidden) writeNow(); });
 
+  // Bringt einen rohen, geparsten Stand (aus dem Speicher oder einer
+  // importierten Datei) auf die aktuelle Form. Wirft, wenn er sich nicht
+  // als Wochenplan-Stand lesen lässt - der Aufrufer entscheidet, was dann
+  // passiert (beim normalen Laden: nichts tun; beim Import: melden).
+  function migrate(d){
+    if(!d || !Array.isArray(d.cards)) throw new Error("keine Wochenplan-Daten");
+    // Fassung 1 zählte die Kartenzeit ab 06:00, jetzt wird ab Mitternacht gezählt
+    if(!d.v){ d.cards.forEach(c => { c.start = (c.start || 0) + 12; }); d.v = 2; }
+    // Fassung 2 rechnete in halben Stunden, jetzt in Viertelstunden
+    if(d.v === 2){
+      d.cards.forEach(c => { c.start = (c.start || 0) * 2; c.dur = (c.dur || 1) * 2; });
+      d.v = 3;
+    }
+    // Fassung 3 kannte den Anzeigebereich nur in vollen Stunden
+    if(d.v === 3){
+      d.startQ = (d.startH === undefined ? 6  : d.startH) * 4;
+      d.endQ   = (d.endH   === undefined ? 23 : d.endH  ) * 4;
+      delete d.startH; delete d.endH;
+      d.v = 4;
+    }
+    return d;
+  }
+
   async function load(){
     try{
       const raw = await store.read();
       if(!raw) return;
-      const d = JSON.parse(raw);
-      if(!d || !Array.isArray(d.cards)) return;
-      // Fassung 1 zählte die Kartenzeit ab 06:00, jetzt wird ab Mitternacht gezählt
-      if(!d.v){ d.cards.forEach(c => { c.start = (c.start || 0) + 12; }); d.v = 2; }
-      // Fassung 2 rechnete in halben Stunden, jetzt in Viertelstunden
-      if(d.v === 2){
-        d.cards.forEach(c => { c.start = (c.start || 0) * 2; c.dur = (c.dur || 1) * 2; });
-        d.v = 3;
-      }
-      // Fassung 3 kannte den Anzeigebereich nur in vollen Stunden
-      if(d.v === 3){
-        d.startQ = (d.startH === undefined ? 6  : d.startH) * 4;
-        d.endQ   = (d.endH   === undefined ? 23 : d.endH  ) * 4;
-        delete d.startH; delete d.endH;
-        d.v = 4;
-      }
-      state = Object.assign(state, d);
+      state = Object.assign(state, migrate(JSON.parse(raw)));
     }catch(e){ /* noch nichts gespeichert oder unlesbar */ }
   }
 
@@ -1249,6 +1261,13 @@
   });
   $("#mPdf").addEventListener("click", ()=>{ closeMenu(); exportAs("pdf"); });
   $("#mJpg").addEventListener("click", ()=>{ closeMenu(); exportAs("jpeg"); });
+  $("#mExport").addEventListener("click", ()=>{ closeMenu(); exportData(); });
+  $("#mImport").addEventListener("click", ()=>$("#mImportFile").click());
+  $("#mImportFile").addEventListener("change", e=>{
+    const file = e.target.files[0];
+    e.target.value = "";                 // dieselbe Datei erneut waehlbar machen
+    if(file) importData(file);
+  });
 
   window.addEventListener("resize", ()=>{ measure(); render(); });
 
@@ -1437,6 +1456,35 @@
     a.href = url; a.download = name; a.rel = "noopener";
     document.body.appendChild(a); a.click();
     setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 8000);
+  }
+
+  /* ---------- Plan als Datei sichern / auf einem anderen Gerät laden ---------- */
+  // Dieselbe Form, die auch im Gerätespeicher liegt - eine geladene Datei
+  // durchläuft darum genau dieselbe migrate(), die auch ältere gespeicherte
+  // Stände auf die aktuelle Fassung bringt.
+  function exportData(){
+    const stamp = new Date().toISOString().slice(0, 10);
+    const blob = new Blob([JSON.stringify(state)], { type: "application/json" });
+    download(blob, "Wochenplan-" + stamp + ".json");
+  }
+
+  async function importData(file){
+    let d;
+    try{
+      d = migrate(JSON.parse(await file.text()));
+    }catch(e){
+      alert("Das ist keine Wochenplan-Datei.");
+      return;
+    }
+    if(state.cards.length && !confirm(
+      "Der Plan auf diesem Gerät wird durch die Datei ersetzt. Fortfahren?"
+    )) return;
+    state = Object.assign(defaultState(), d);
+    activeId = null; editingId = null;
+    closeMenu();
+    applyTheme();
+    document.documentElement.dataset.full = state.full ? "1" : "0";
+    measure(); render(); writeNow();
   }
 
   // Minimales PDF mit dem Bild als einziger Seite, A4 quer
