@@ -1,0 +1,1104 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover, shrink-to-fit=no">
+<title>Wochenplan</title>
+<meta name="description" content="Wochenplanung mit verschiebbaren Kärtchen.">
+<meta name="theme-color" content="#8E7C5E" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#8E7C5E">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Wochenplan">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" href="icon-192.png" sizes="192x192">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&family=Karla:wght@400;600;700&display=swap" rel="stylesheet">
+<script>document.documentElement.dataset.theme="paper";</script>
+<style>
+  :root{
+    --hand:"Caveat","Bradley Hand","Segoe Print",ui-rounded,cursive;
+    --body:"Karla",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+
+    /* Design „Papier“ */
+    --ink:#3A3226;
+    --ink-soft:#6B6153;
+    --kraft:#CBB894;          /* Rasterfläche */
+    --kraft-dark:#B49F7B;     /* Zeitleiste */
+    --shell:#9C8A6B;
+    --topbar:#8E7C5E;
+    --tray:#A08D6C;
+    --tray-label:rgba(255,255,255,.72);
+    --head:#B8A47E;
+    --head-ink:#4A3F2E;
+    --l1:rgba(58,50,38,.20);  /* volle Stunde */
+    --l2:rgba(58,50,38,.08);  /* halbe Stunde */
+    --l3:rgba(58,50,38,.18);  /* Tagesspalten */
+    --display:var(--hand);
+    --brand-size:26px;
+    --brand-ink:#FBF3E2;
+    --btn-bg:#F3E9D2;
+    --btn-radius:3px;
+    --btn-shadow:0 2px 0 rgba(0,0,0,.22);
+    --sheet-bg:#F6EDD9;
+    --field-bg:#FFFBF0;
+    --card-radius:0;
+    --card-title:19px;
+    --card-title-weight:400;
+    --grain:.5;
+  }
+
+  /* Design „Clips“ – ruhig, flach, ohne Papierbezug */
+  [data-theme="clip"]{
+    --ink:#1B2130;
+    --ink-soft:#69718A;
+    --kraft:#F1F2F6;
+    --kraft-dark:#FFFFFF;
+    --shell:#E7E9EF;
+    --topbar:#171A21;
+    --tray:#E7E9EF;
+    --tray-label:rgba(27,33,48,.5);
+    --head:#FFFFFF;
+    --head-ink:#39415A;
+    --l1:rgba(20,26,40,.14);
+    --l2:rgba(20,26,40,.055);
+    --l3:rgba(20,26,40,.10);
+    --display:var(--body);
+    --brand-size:18px;
+    --brand-ink:#FFFFFF;
+    --btn-bg:#FFFFFF;
+    --btn-radius:8px;
+    --btn-shadow:none;
+    --sheet-bg:#FFFFFF;
+    --field-bg:#F5F6F9;
+    --card-radius:10px;
+    --card-title:13.5px;
+    --card-title-weight:600;
+    --grain:0;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{
+    margin:0;height:100%;overflow:hidden;
+    overscroll-behavior:none;touch-action:pan-x pan-y;
+  }
+  body{
+    font-family:var(--body);color:var(--ink);
+    background-color:var(--shell);
+    user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;
+  }
+  input,textarea{user-select:text;-webkit-user-select:text}
+  button,.chip,.sw,.day{touch-action:manipulation}
+
+  .app{
+    position:fixed;top:0;left:0;right:0;bottom:0;
+    height:100dvh;              /* folgt der ein- und ausfahrenden Browserleiste */
+    display:flex;flex-direction:column;
+  }
+
+  /* ---------- Kopfzeile ---------- */
+  .topbar{
+    display:flex;align-items:center;gap:8px;
+    padding:calc(10px + env(safe-area-inset-top)) calc(12px + env(safe-area-inset-right))
+            8px calc(12px + env(safe-area-inset-left));
+    background:var(--topbar);
+    border-bottom:1px solid rgba(0,0,0,.18);
+    box-shadow:0 2px 10px rgba(0,0,0,.2);
+    z-index:20;
+  }
+  .brand{
+    font-family:var(--display);font-size:var(--brand-size);line-height:1;color:var(--brand-ink);
+    letter-spacing:.5px;margin-right:auto;white-space:nowrap;
+  }
+  [data-theme="paper"] .brand{text-shadow:0 1px 0 rgba(0,0,0,.25)}
+  [data-theme="clip"] .brand{font-weight:700;letter-spacing:-.01em}
+  .btn{
+    font-family:var(--body);font-weight:600;font-size:12.5px;white-space:nowrap;
+    border:1px solid rgba(0,0,0,.25);border-radius:var(--btn-radius);
+    padding:7px 9px;background:var(--btn-bg);color:var(--ink);
+    box-shadow:var(--btn-shadow);cursor:pointer;
+  }
+  .btn:active{transform:translateY(2px);box-shadow:0 0 0 rgba(0,0,0,.2)}
+  .btn.ghost{background:rgba(255,255,255,.12);color:var(--brand-ink);border-color:rgba(255,255,255,.3);box-shadow:none}
+  .btn:focus-visible{outline:2px solid #F2C14E;outline-offset:2px}
+
+  /* ---------- Stapel ---------- */
+  .tray{
+    background:var(--tray);
+    border-bottom:1px solid rgba(0,0,0,.15);
+    padding:6px calc(10px + env(safe-area-inset-right)) 10px calc(10px + env(safe-area-inset-left));
+    flex:none;z-index:15;
+  }
+  .tray-label{
+    font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--tray-label);margin-bottom:5px;font-weight:700;
+  }
+  .tray-strip{display:flex;gap:10px;overflow-x:auto;overflow-y:hidden;overscroll-behavior:none;
+    padding:4px 2px 6px;min-height:74px;align-items:flex-start}
+  .tray-strip::-webkit-scrollbar{height:6px}
+  .tray-strip::-webkit-scrollbar-thumb{background:rgba(0,0,0,.25);border-radius:3px}
+  .tray-empty{
+    font-family:var(--display);font-size:16px;color:var(--tray-label);
+    padding:16px 4px;white-space:nowrap;
+  }
+
+  /* ---------- Brett ---------- */
+  .scroll{
+    flex:1;overflow:auto;position:relative;
+    overscroll-behavior:none;background:var(--kraft);
+    padding-bottom:env(safe-area-inset-bottom);
+  }
+  .board{position:relative}
+  .head{
+    position:sticky;top:0;z-index:1000;display:flex;height:40px;
+    background:var(--head);border-bottom:1px solid rgba(0,0,0,.14);
+    box-shadow:0 2px 6px rgba(0,0,0,.12);
+  }
+  .head .corner{flex:none;position:sticky;left:0;background:var(--head);z-index:2}
+  .day{
+    flex:none;display:flex;align-items:center;justify-content:center;gap:6px;
+    font-family:var(--display);font-size:21px;color:var(--head-ink);
+    border-left:1px solid rgba(0,0,0,.10);
+  }
+
+  .day .num{display:none}
+  [data-theme="clip"] .day{font-size:13.5px;font-weight:600;letter-spacing:.01em}
+  [data-theme="clip"] .tick{font-weight:600}
+
+  .canvas{
+    position:relative;
+    background-color:var(--kraft);
+    background-image:
+      linear-gradient(to bottom, var(--l1) 0 1px, transparent 1px),
+      linear-gradient(to bottom, var(--l2) 0 1px, transparent 1px),
+      linear-gradient(to right,  var(--l3) 0 1px, transparent 1px);
+  }
+  .grain{position:absolute;inset:0;pointer-events:none;opacity:var(--grain);
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3'/><feColorMatrix type='saturate' values='0'/></filter><rect width='120' height='120' filter='url(%23n)' opacity='.32'/></svg>");
+  }
+  .gutter{position:absolute;left:0;top:0;bottom:0;z-index:500;background:var(--kraft-dark);
+    border-right:1px solid rgba(0,0,0,.2);box-shadow:2px 0 6px rgba(0,0,0,.12);will-change:transform}
+  .tick{position:absolute;right:6px;font-size:10.5px;font-weight:700;color:var(--ink-soft);transform:translateY(-1px)}
+
+  /* ---------- Kärtchen ---------- */
+  .card{
+    position:absolute;cursor:grab;touch-action:none;
+    filter:drop-shadow(0 2px 1px rgba(52,38,18,.3)) drop-shadow(0 7px 9px rgba(52,38,18,.22));
+    transition:filter .12s ease;
+  }
+  .card .paper{
+    position:relative;width:100%;height:100%;overflow:hidden;
+    padding:6px 8px 4px;border-radius:var(--card-radius);
+  }
+  [data-theme="paper"] .card .paper::after{
+    content:"";position:absolute;inset:0;pointer-events:none;
+    background:linear-gradient(105deg,rgba(255,255,255,.42),rgba(255,255,255,0) 42%,rgba(0,0,0,.07));
+  }
+  [data-theme="clip"] .card{
+    filter:drop-shadow(0 1px 1px rgba(20,26,40,.10)) drop-shadow(0 4px 8px rgba(20,26,40,.10));
+  }
+  [data-theme="clip"] .card .paper{
+    box-shadow:inset 0 0 0 1px rgba(20,26,40,.10);padding:6px 9px 4px;
+  }
+  [data-theme="clip"] .card.stacked .paper{box-shadow:inset 0 0 0 1px rgba(20,26,40,.16)}
+  [data-theme="clip"] .card.active .paper{box-shadow:inset 0 0 0 2px var(--ink)}
+  [data-theme="clip"] .card .handle span{background:var(--ink);opacity:.5;border-radius:4px}
+  .card .t{
+    font-family:var(--display);font-size:var(--card-title);
+    font-weight:var(--card-title-weight);line-height:1.14;
+    color:var(--ink);word-break:break-word;
+    display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;
+  }
+  .card .n{font-size:10.5px;line-height:1.25;color:var(--ink-soft);margin-top:2px;
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  /* Zeitanzeige erscheint nur während des Ziehens */
+  #badge{
+    position:fixed;z-index:3000;pointer-events:none;display:none;
+    background:var(--ink);color:#fff;white-space:nowrap;
+    font-family:var(--body);font-size:12px;font-weight:700;letter-spacing:.02em;
+    padding:5px 9px;border-radius:6px;box-shadow:0 4px 14px rgba(0,0,0,.32);
+  }
+  .card.active .paper{box-shadow:inset 0 0 0 2px rgba(51,41,27,.5)}
+  .card .handle{
+    position:absolute;left:50%;bottom:-16px;width:76px;height:32px;margin-left:-38px;
+    display:flex;align-items:flex-start;justify-content:center;padding-top:9px;
+    touch-action:none;cursor:ns-resize;z-index:6;
+  }
+  .card .handle span{
+    width:42px;height:7px;border-radius:4px;background:#3A3226;opacity:.6;
+    box-shadow:0 1px 0 rgba(255,255,255,.45);
+  }
+  .card.resizing .handle span{opacity:.9;width:52px}
+  .card.small{width:132px;height:70px;position:relative;flex:none}
+  .card.drag{
+    position:fixed;z-index:2000;pointer-events:none;
+    filter:drop-shadow(0 10px 14px rgba(40,28,10,.42)) drop-shadow(0 2px 2px rgba(40,28,10,.3));
+  }
+  .card.stacked .paper{box-shadow:inset 0 0 0 1px rgba(255,255,255,.35)}
+
+  .dropzone{position:absolute;border:2px dashed rgba(58,50,38,.45);
+    background:rgba(255,252,240,.28);border-radius:2px;pointer-events:none;z-index:4}
+
+  .drop-tray{outline:2px dashed rgba(255,255,255,.75);outline-offset:-4px}
+
+  /* ---------- Editor ---------- */
+  .backdrop{position:fixed;inset:0;background:rgba(30,22,10,.45);opacity:0;pointer-events:none;
+    transition:opacity .18s ease;z-index:900}
+  .backdrop.on{opacity:1;pointer-events:auto}
+  .sheet{
+    position:fixed;left:0;right:0;bottom:0;z-index:901;
+    background:var(--sheet-bg);border-top:3px solid var(--topbar);
+    border-radius:10px 10px 0 0;padding:14px 16px calc(16px + env(safe-area-inset-bottom));
+    transform:translateY(105%);transition:transform .22s cubic-bezier(.2,.8,.3,1);
+    max-height:86dvh;overflow:auto;box-shadow:0 -8px 24px rgba(0,0,0,.3);
+  }
+  .sheet.on{transform:translateY(0)}
+  .sheet h2{font-family:var(--display);font-size:26px;margin:0 0 10px}
+  [data-theme="clip"] .sheet h2{font-size:19px;font-weight:700}
+  label.f{display:block;font-size:10.5px;letter-spacing:.13em;text-transform:uppercase;
+    font-weight:700;color:var(--ink-soft);margin:12px 0 5px}
+  .sheet input,.sheet textarea{
+    width:100%;font-family:var(--body);font-size:15px;color:var(--ink);
+    background:var(--field-bg);border:1px solid rgba(58,50,38,.25);border-radius:3px;padding:9px 10px;
+  }
+  .sheet input{font-family:var(--display);font-size:22px;padding:4px 10px}
+  [data-theme="clip"] .sheet input{font-size:16px;font-weight:600;padding:9px 10px}
+  .sheet textarea{resize:vertical;min-height:52px}
+  .swatches{display:flex;flex-wrap:wrap;gap:9px}
+  .sw{width:36px;height:36px;border-radius:var(--btn-radius);border:1px solid rgba(0,0,0,.18);cursor:pointer;
+    box-shadow:0 2px 0 rgba(0,0,0,.18)}
+  .sw.sel{outline:2px solid var(--ink);outline-offset:2px}
+  .chips{display:flex;flex-wrap:wrap;gap:7px}
+  .chip{font-size:13px;font-weight:600;padding:7px 11px;border-radius:var(--btn-radius);cursor:pointer;
+    background:var(--field-bg);border:1px solid rgba(58,50,38,.25);color:var(--ink)}
+  .chip.sel{background:var(--ink);color:#F6EDD9;border-color:var(--ink)}
+  .mi{
+    display:flex;align-items:center;justify-content:space-between;gap:12px;
+    width:100%;text-align:left;margin-bottom:8px;cursor:pointer;
+    font-family:var(--body);font-size:14.5px;font-weight:600;color:var(--ink);
+    background:var(--field-bg);border:1px solid rgba(58,50,38,.22);
+    border-radius:var(--btn-radius);padding:13px 13px;
+  }
+  .mi b{font-weight:600;font-size:12px;color:var(--ink-soft)}
+  .mi.warn{color:#9A3412;border-color:rgba(154,52,18,.35)}
+  .mi:active{transform:translateY(1px)}
+  .sheet-actions{display:flex;gap:8px;margin-top:18px;align-items:center}
+  .sheet-actions .btn{flex:1;padding:11px}
+  .btn.primary{background:var(--ink);color:var(--sheet-bg);border-color:var(--ink)}
+  .btn.danger{flex:none;background:var(--sheet-bg);color:#9A3412;border-color:rgba(154,52,18,.45)}
+  .hint{font-size:11.5px;color:var(--ink-soft);margin-top:9px;line-height:1.4}
+  @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div class="app">
+  <div class="topbar">
+    <div class="brand">Wochenplan</div>
+    <button class="btn" id="addBtn">+ Karte</button>
+    <button class="btn ghost" id="themeBtn">Design</button>
+    <button class="btn ghost" id="moreBtn" aria-label="Weitere Aktionen">•••</button>
+  </div>
+
+  <div class="tray" id="tray">
+    <div class="tray-label">Stapel &middot; noch nicht eingeplant</div>
+    <div class="tray-strip" id="trayStrip"></div>
+  </div>
+
+  <div class="scroll" id="scroll">
+    <div class="board" id="board">
+      <div class="head" id="head"></div>
+      <div class="canvas" id="canvas">
+        <div class="grain"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="badge"></div>
+<div class="backdrop" id="backdrop"></div>
+<div class="sheet" id="menu">
+  <h2>Wochenplan</h2>
+  <button class="mi" id="mWeekend"><span>Wochenende anzeigen</span><b id="mWeekendState">an</b></button>
+  <button class="mi" id="mPdf"><span>Als PDF sichern</span><b>Querformat</b></button>
+  <button class="mi" id="mJpg"><span>Als JPEG sichern</span><b>Bild</b></button>
+  <button class="mi warn" id="mClear"><span>Alle Karten löschen</span></button>
+  <div class="sheet-actions"><button class="btn primary" id="mClose">Schließen</button></div>
+  <div class="hint">Gesichert wird der Ausschnitt, in dem Karten liegen – im Querformat auf A4, passend zum Ausdrucken.</div>
+</div>
+
+<div class="sheet" id="sheet">
+  <h2 id="sheetTitle">Karte</h2>
+  <label class="f" for="fTitle">Titel</label>
+  <input id="fTitle" placeholder="Was steht an?" autocomplete="off">
+  <label class="f" for="fNote">Notiz</label>
+  <textarea id="fNote" placeholder="Ort, Personen, Material …"></textarea>
+  <label class="f">Papierfarbe</label>
+  <div class="swatches" id="fColors"></div>
+  <label class="f">Dauer</label>
+  <div class="chips" id="fDur"></div>
+  <div class="sheet-actions">
+    <button class="btn danger" id="fDelete">Löschen</button>
+    <button class="btn" id="fUnplace">In den Stapel</button>
+    <button class="btn primary" id="fDone">Fertig</button>
+  </div>
+  <div class="hint">Karte ziehen verschiebt sie. Antippen wählt sie aus und holt sie nach vorn – dann die Lasche an der Unterkante nach unten oder oben ziehen, um sie zu verlängern oder zu kürzen. Nochmal antippen öffnet sie.</div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ---------- Als Web-App installierbar ---------- */
+  if("serviceWorker" in navigator && location.protocol.startsWith("http")){
+    window.addEventListener("load", ()=>{
+      navigator.serviceWorker.register("sw.js").catch(()=>{ /* auch ohne Zwischenspeicher nutzbar */ });
+    });
+  }
+
+  /* ---------- Gesten abschalten ---------- */
+  const inField = t => !!(t && t.closest && t.closest("input,textarea,button,.chip,.sw"));
+
+  // Safari: Pinch-Zoom
+  ["gesturestart","gesturechange","gestureend"].forEach(t =>
+    document.addEventListener(t, e => e.preventDefault(), {passive:false}));
+
+  // Zwei-Finger-Zoom in allen Browsern
+  document.addEventListener("touchstart", e => {
+    if(e.touches.length > 1) e.preventDefault();
+  }, {passive:false});
+  document.addEventListener("touchmove", e => {
+    if(e.touches.length > 1) e.preventDefault();
+  }, {passive:false});
+
+  // Doppeltipp-Zoom
+  let lastTap = 0;
+  document.addEventListener("touchend", e => {
+    const now = Date.now();
+    if(now - lastTap < 380 && !inField(e.target)) e.preventDefault();
+    lastTap = now;
+  }, {passive:false});
+  document.addEventListener("dblclick", e => e.preventDefault());
+
+  // Langes Drücken: kein Markieren, keine Lupe, kein Kontextmenü
+  document.addEventListener("selectstart", e => { if(!inField(e.target)) e.preventDefault(); });
+  document.addEventListener("contextmenu", e => { if(!inField(e.target)) e.preventDefault(); });
+  document.addEventListener("dragstart", e => e.preventDefault());
+
+  // Strg/Cmd + Rad am Rechner
+  document.addEventListener("wheel", e => { if(e.ctrlKey) e.preventDefault(); }, {passive:false});
+
+  /* ---------- Konstanten ---------- */
+  const DAYS   = ["Montag","Dienstag","Mittwoch","Donnerstag","Freitag","Samstag","Sonntag"];
+  const SHORT  = ["Mo","Di","Mi","Do","Fr","Sa","So"];
+  const START_H = 6, END_H = 23;
+  const SLOTS = (END_H - START_H) * 2;      // 30-Minuten-Raster
+  const ROWH = 34, HEADH = 40, GUT = 52;
+  const PADL = 14, PADT = 14, PADR = 18, PADB = 28;   // Luft am Rand des Rasters
+  const COL0 = GUT + PADL;                            // linke Kante der Montagsspalte
+  const PAPERS = ["#F2C14E","#EF8354","#7FB685","#6FA8DC","#B49BD8","#F0A9BE","#A8C256","#EDE3CC"];
+  // gleiche Reihenfolge, aber kühler und kräftiger für das Clip-Design
+  const CLIPS  = ["#E9A81C","#E2603A","#2E9E6B","#2F7DD1","#7C5CD6","#D6437E","#6E9B1F","#64748B"];
+  const DURS = [[1,"30 Min"],[2,"1 Std"],[3,"1½ Std"],[4,"2 Std"],[6,"3 Std"],[8,"4 Std"]];
+
+  /* ---------- Zustand ---------- */
+  let state = { cards:[], seq:1, z:1, theme:"paper", weekend:true };
+  let colW = 120, boardW = 0, canvasH = PADT + SLOTS*ROWH + PADB;
+  let editingId = null, activeId = null;
+
+  const $ = s => document.querySelector(s);
+  const scroll=$("#scroll"), canvas=$("#canvas"), head=$("#head"),
+        board=$("#board"), trayStrip=$("#trayStrip"), tray=$("#tray"),
+        sheet=$("#sheet"), backdrop=$("#backdrop");
+
+  /* ---------- Speichern ---------- */
+  const KEY = "wochenplan:v1";
+
+  // localStorage ist der normale Weg. Nur wo er fehlt oder gesperrt ist
+  // (etwa in einer Vorschau), wird auf window.storage ausgewichen.
+  const store = (function(){
+    try{
+      const probe = "__wp_probe";
+      localStorage.setItem(probe, "1");
+      localStorage.removeItem(probe);
+      return {
+        name: "localStorage",
+        read:  () => localStorage.getItem(KEY),
+        write: v  => localStorage.setItem(KEY, v)
+      };
+    }catch(e){ /* nicht verfügbar */ }
+    if(window.storage) return {
+      name: "window.storage",
+      read:  async () => { const r = await window.storage.get(KEY); return r && r.value; },
+      write: async v  => { await window.storage.set(KEY, v); }
+    };
+    return { name: "keiner", read: () => null, write: () => {} };
+  })();
+
+  let saveTimer = null;
+  function writeNow(){
+    clearTimeout(saveTimer); saveTimer = null;
+    try{ Promise.resolve(store.write(JSON.stringify(state))).catch(()=>{}); }
+    catch(e){ /* voller oder gesperrter Speicher */ }
+  }
+  function save(){
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(writeNow, 250);
+  }
+  // beim Wegschalten oder Schließen nichts verlieren
+  addEventListener("pagehide", writeNow);
+  addEventListener("visibilitychange", ()=>{ if(document.hidden) writeNow(); });
+
+  async function load(){
+    try{
+      const raw = await store.read();
+      if(!raw) return;
+      const d = JSON.parse(raw);
+      if(d && Array.isArray(d.cards)) state = Object.assign(state, d);
+    }catch(e){ /* noch nichts gespeichert oder unlesbar */ }
+  }
+
+  /* ---------- Helfer ---------- */
+  function rng(seed){ let t = seed*1831565813 >>> 0;
+    return function(){ t += 0x6D2B79F5; let x = Math.imul(t^(t>>>15), 1|t);
+      x ^= x + Math.imul(x^(x>>>7), 61|x); return ((x^(x>>>14))>>>0)/4294967296; }; }
+  function cutPoints(seed){
+    const r = rng(seed), p = [], jx=1.6, jy=2.0;
+    for(let i=0;i<=5;i++) p.push([i*20+(r()-.5)*jx, (r()-.5)*jy]);
+    for(let i=1;i<=4;i++) p.push([100+(r()-.5)*jx, i*20+(r()-.5)*jy]);
+    for(let i=5;i>=0;i--) p.push([i*20+(r()-.5)*jx, 100+(r()-.5)*jy]);
+    for(let i=4;i>=1;i--) p.push([(r()-.5)*jx, i*20+(r()-.5)*jy]);
+    return p;
+  }
+  function cutEdge(seed){
+    if(state.theme !== "paper") return "none";
+    return "polygon(" + cutPoints(seed).map(a=>a[0].toFixed(2)+"% "+a[1].toFixed(2)+"%").join(",") + ")";
+  }
+  function tilt(seed){
+    if(state.theme !== "paper") return 0;      // Clips liegen gerade
+    const r = rng(seed*7+3); return (r()*2-1)*1.9;
+  }
+  function accent(hex){                         // Farbe im aktuellen Design
+    const i = PAPERS.indexOf(hex);
+    return (state.theme === "clip" && i >= 0) ? CLIPS[i] : hex;
+  }
+  function tint(hex, amount){                   // mit Weiß aufhellen
+    const n = parseInt(hex.slice(1), 16);
+    const mix = v => Math.round(v + (255 - v) * amount);
+    return "rgb(" + mix(n>>16 & 255) + "," + mix(n>>8 & 255) + "," + mix(n & 255) + ")";
+  }
+  const CLIP_TINT = .66;                        // wie weit die Clipfarbe aufgehellt wird
+  function swatchFill(hex){                     // Farbe so, wie sie auf der Karte erscheint
+    return state.theme === "clip" ? tint(accent(hex), CLIP_TINT) : hex;
+  }
+  function cardFill(c){ return "background:" + swatchFill(c.color); }
+  function esc(s){ return String(s||"").replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+  function hhmm(slot){ const m = START_H*60 + slot*30; return String(Math.floor(m/60)).padStart(2,"0")+":"+String(m%60).padStart(2,"0"); }
+  function byId(id){ return state.cards.find(c=>c.id===id); }
+  function dayCount(){ return state.weekend ? 7 : 5; }
+
+  /* ---------- Maße ---------- */
+  function measure(){
+    const n = dayCount();
+    const avail = scroll.clientWidth - COL0 - PADR;
+    colW = Math.max(112, Math.min(190, Math.floor(avail/n)));
+    if(colW*n < avail) colW = Math.floor(avail/n);
+    boardW = COL0 + colW*n + PADR;
+    board.style.width = boardW + "px";
+    canvas.style.height = canvasH + "px";
+    canvas.style.width = boardW + "px";
+    canvas.style.backgroundSize =
+      "100% "+(ROWH*2)+"px, 100% "+ROWH+"px, "+colW+"px 100%";
+    canvas.style.backgroundPosition = "0 "+PADT+"px, 0 "+PADT+"px, "+COL0+"px 0";
+    head.style.width = boardW + "px";
+    renderHead();
+  }
+
+  function renderHead(){
+    head.innerHTML = '<div class="corner" style="width:'+COL0+'px"></div>' +
+      DAYS.slice(0, dayCount()).map((d,i)=>'<div class="day" style="width:'+colW+'px">'+
+        (colW < 128 ? SHORT[i] : d) + '</div>').join("");
+  }
+
+  /* ---------- Zeichnen ---------- */
+  function cardInner(c, active){
+    const placed = c.day !== null;
+    return '<div class="paper" style="'+cardFill(c)+';clip-path:'+cutEdge(c.id)+'">' +
+             '<div class="t">'+esc(c.title||"Ohne Titel")+'</div>' +
+             (c.note?'<div class="n">'+esc(c.note)+'</div>':'') +
+           '</div>' +
+           (placed && active ? '<div class="handle" data-handle="1"><span></span></div>' : '');
+  }
+
+  function render(){
+    // Stapel
+    const loose = state.cards.filter(c=>c.day===null);
+    trayStrip.innerHTML = loose.length ? "" : '<div class="tray-empty">Leer – tippe auf „+ Karte“</div>';
+    loose.forEach(c=>{
+      const el = document.createElement("div");
+      el.className = "card small"; el.dataset.id = c.id;
+      el.style.transform = "rotate("+tilt(c.id)+"deg)";
+      el.innerHTML = cardInner(c, false);
+      trayStrip.appendChild(el);
+    });
+
+    // Brett
+    [...canvas.querySelectorAll(".card,.gutter")].forEach(n=>n.remove());
+
+    const g = document.createElement("div");
+    g.className = "gutter"; g.style.width = GUT + "px";
+    let ticks = "";
+    for(let h=START_H; h<=END_H; h++)
+      ticks += '<div class="tick" style="top:'+(PADT+(h-START_H)*ROWH*2)+'px">'+String(h).padStart(2,"0")+':00</div>';
+    g.innerHTML = ticks;
+    canvas.appendChild(g);
+    g.style.transform = "translateX("+Math.max(0, scroll.scrollLeft)+"px)";
+
+    // Stapelreihenfolge in kleine, begrenzte Ebenen übersetzen
+    const rank = new Map();
+    [...state.cards].sort((a,b)=>a.z-b.z).forEach((c,i)=>rank.set(c.id, i));
+
+    for(let d=0; d<dayCount(); d++){
+      const list = state.cards.filter(c=>c.day===d)
+        .sort((a,b)=> a.start-b.start || a.z-b.z);
+      list.forEach((c,i)=>{
+        let over = 0;
+        for(let j=0;j<i;j++){
+          const o = list[j];
+          if(o.start < c.start + c.dur && c.start < o.start + o.dur) over++;
+        }
+        const ox = over*9, oy = over*7;
+        const el = document.createElement("div");
+        el.className = "card" + (over?" stacked":"") + (c.id===activeId?" active":"");
+        el.dataset.id = c.id;
+        el.style.left = (COL0 + d*colW + 5 + ox) + "px";
+        el.style.top  = (PADT + c.start*ROWH + 3 + oy) + "px";
+        el.style.width  = (colW - 14) + "px";
+        el.style.height = (c.dur*ROWH - 7) + "px";
+        el.style.zIndex = Math.min(400, 10 + rank.get(c.id));
+        el.style.transform = "rotate("+tilt(c.id)+"deg)";
+        el.innerHTML = cardInner(c, c.id===activeId);
+        canvas.appendChild(el);
+      });
+    }
+    save();
+  }
+
+  scroll.addEventListener("scroll", ()=>{
+    const g = canvas.querySelector(".gutter");
+    if(g) g.style.transform = "translateX("+Math.max(0, scroll.scrollLeft)+"px)";
+  }, {passive:true});
+
+  /* ---------- Karten anlegen ---------- */
+  function newCard(day, start){
+    const c = { id: state.seq++, title:"", note:"",
+      color: PAPERS[(state.seq*3)%PAPERS.length],
+      day: (day===undefined?null:day), start: (start===undefined?16:start),
+      dur: 2, z: state.z++ };
+    state.cards.push(c); activeId = (c.day===null ? null : c.id); render(); openEditor(c.id, true);
+  }
+
+  /* ---------- Ziehen ---------- */
+  let drag = null, ghost = null, autoTimer = null;
+
+  function pointFrom(e){ return {x:e.clientX, y:e.clientY}; }
+
+  function onDown(e){
+    const cardEl = e.target.closest(".card");
+    if(!cardEl) return;
+    const c = byId(+cardEl.dataset.id); if(!c) return;
+    const onHandle = !!e.target.closest("[data-handle]");
+    const r = cardEl.getBoundingClientRect();
+    drag = { id:c.id, el:cardEl, mode: onHandle ? "resize" : "pending",
+             sx:e.clientX, sy:e.clientY, dx:e.clientX-r.left, dy:e.clientY-r.top,
+             w:r.width, h:r.height, fromTray:c.day===null, moved:false, t:Date.now(),
+             dur0:c.dur, dur:c.dur };
+    if(onHandle) cardEl.classList.add("resizing");
+    cardEl.setPointerCapture && cardEl.setPointerCapture(e.pointerId);
+    e.preventDefault();
+  }
+
+  function startDrag(){
+    const c = byId(drag.id);
+    const el = drag.el;
+    if(drag.fromTray){
+      drag.w = colW - 14; drag.h = c.dur*ROWH - 7;
+      drag.dx = Math.min(drag.dx, drag.w-20); drag.dy = 20;
+      el.style.width = drag.w+"px"; el.style.height = drag.h+"px";
+    }
+    el.classList.remove("small");
+    el.classList.add("drag");
+    el.style.width = drag.w+"px"; el.style.height = drag.h+"px";
+    document.body.appendChild(el);
+    ghost = document.createElement("div"); ghost.className = "dropzone";
+    canvas.appendChild(ghost);
+    drag.mode = "move";
+  }
+
+  function cellAt(x, y){
+    const r = canvas.getBoundingClientRect();
+    if(x < r.left || x > r.right || y < r.top || y > r.bottom) return null;
+    const lx = x - r.left - drag.dx, ly = y - r.top - drag.dy;
+    let day = Math.round((lx - COL0 - 5) / colW);
+    let slot = Math.round((ly - PADT - 3) / ROWH);
+    day = Math.max(0, Math.min(dayCount()-1, day));
+    const c = byId(drag.id);
+    slot = Math.max(0, Math.min(SLOTS - c.dur, slot));
+    return {day, slot};
+  }
+
+  function onMove(e){
+    if(!drag) return;
+    if(drag.mode === "pending"){
+      if(Math.abs(e.clientX-drag.sx) < 6 && Math.abs(e.clientY-drag.sy) < 6) return;
+      startDrag();
+    }
+    if(drag.mode === "resize"){
+      const c = byId(drag.id);
+      const steps = Math.round((e.clientY - drag.sy) / ROWH);
+      const dur = Math.max(1, Math.min(SLOTS - c.start, drag.dur0 + steps));
+      if(dur !== drag.dur){
+        drag.dur = dur; drag.moved = true;
+        drag.el.style.height = (dur*ROWH - 7) + "px";
+        showBadge(e, hhmm(c.start) + "–" + hhmm(c.start + dur));
+      }
+      return;
+    }
+    // Verschieben
+    drag.el.style.left = (e.clientX - drag.dx) + "px";
+    drag.el.style.top  = (e.clientY - drag.dy) + "px";
+    drag.moved = true;
+
+    const overTray = isOver(tray, e.clientX, e.clientY);
+    tray.classList.toggle("drop-tray", overTray);
+    const cell = overTray ? null : cellAt(e.clientX, e.clientY);
+    if(cell){
+      const c = byId(drag.id);
+      ghost.style.display = "block";
+      ghost.style.left = (COL0 + cell.day*colW + 5) + "px";
+      ghost.style.top  = (PADT + cell.slot*ROWH + 3) + "px";
+      ghost.style.width  = (colW - 14) + "px";
+      ghost.style.height = (c.dur*ROWH - 7) + "px";
+      showBadge(e, SHORT[cell.day] + "  " + hhmm(cell.slot) + "–" + hhmm(cell.slot + c.dur));
+    } else { ghost.style.display = "none"; hideBadge(); }
+    autoScroll(e.clientX, e.clientY);
+  }
+
+  const badge = $("#badge");
+  function showBadge(e, text){
+    badge.textContent = text;
+    badge.style.display = "block";
+    const w = badge.offsetWidth, h = badge.offsetHeight;
+    badge.style.left = Math.max(6, Math.min(innerWidth - w - 6, e.clientX - w/2)) + "px";
+    badge.style.top  = Math.max(6, e.clientY - h - 22) + "px";
+  }
+  function hideBadge(){ badge.style.display = "none"; }
+
+  function isOver(el, x, y){
+    const r = el.getBoundingClientRect();
+    return x>=r.left && x<=r.right && y>=r.top && y<=r.bottom;
+  }
+
+  function autoScroll(x, y){
+    clearTimeout(autoTimer);
+    const r = scroll.getBoundingClientRect();
+    let dx=0, dy=0;
+    if(y > r.bottom-70) dy = 14; else if(y < r.top+50) dy = -14;
+    if(x > r.right-50) dx = 14; else if(x < r.left+50) dx = -14;
+    if(dx||dy){ scroll.scrollBy(dx,dy); autoTimer = setTimeout(()=>autoScroll(x,y), 16); }
+  }
+
+  function onUp(e){
+    if(!drag) return;
+    clearTimeout(autoTimer);
+    hideBadge();
+    const c = byId(drag.id);
+    const wasMove = drag.mode === "move";
+    const quick = !drag.moved && Date.now()-drag.t < 600;
+
+    if(wasMove){
+      const overTray = isOver(tray, e.clientX, e.clientY);
+      const cell = overTray ? null : cellAt(e.clientX, e.clientY);
+      if(overTray){ c.day = null; }
+      else if(cell){ c.day = cell.day; c.start = cell.slot; c.z = state.z++; }
+      drag.el.remove();
+      if(ghost){ ghost.remove(); ghost = null; }
+      tray.classList.remove("drop-tray");
+      activeId = c.day===null ? null : c.id;
+      render();
+    } else if(quick && drag.mode === "pending"){
+      // Erstes Antippen wählt aus, zweites öffnet die Karte
+      if(c.day === null){ openEditor(c.id); }
+      else if(activeId === c.id){ openEditor(c.id); }
+      else { activeId = c.id; c.z = state.z++; render(); }
+    } else if(drag.mode === "resize"){
+      c.dur = drag.dur;
+      drag.el.classList.remove("resizing");
+      render();
+    }
+    drag = null;
+  }
+
+  document.addEventListener("pointerdown", onDown);
+  document.addEventListener("pointermove", onMove, {passive:false});
+  document.addEventListener("pointerup", onUp);
+  document.addEventListener("pointercancel", ()=>{
+    hideBadge();
+    if(!drag) return;
+    if(drag.mode === "move"){ drag.el.remove(); if(ghost){ ghost.remove(); ghost = null; } }
+    if(drag.mode === "resize"){ byId(drag.id).dur = drag.dur; }
+    tray.classList.remove("drop-tray");
+    render();
+    drag = null;
+  });
+
+  // Auf leere Fläche tippen legt dort eine Karte an
+  let tapStart = null;
+  canvas.addEventListener("pointerdown", e=>{
+    if(e.target.closest(".card")) { tapStart = null; return; }
+    tapStart = {x:e.clientX, y:e.clientY, t:Date.now()};
+  });
+  canvas.addEventListener("pointerup", e=>{
+    if(!tapStart || e.target.closest(".card")) return;
+    if(Math.abs(e.clientX-tapStart.x)>6 || Math.abs(e.clientY-tapStart.y)>6 || Date.now()-tapStart.t>500){ tapStart=null; return; }
+    const r = canvas.getBoundingClientRect();
+    const day = Math.floor((e.clientX - r.left - COL0)/colW);
+    const slot = Math.floor((e.clientY - r.top - PADT)/ROWH);
+    tapStart = null;
+    if(day<0 || day>=dayCount() || slot<0 || slot>=SLOTS) return;
+    if(activeId !== null){ activeId = null; render(); return; }
+    newCard(day, Math.min(slot, SLOTS-2));
+  });
+
+  /* ---------- Editor ---------- */
+  function openEditor(id, isNew){
+    editingId = id;
+    const c = byId(id);
+    $("#sheetTitle").textContent = isNew ? "Neue Karte" : "Karte bearbeiten";
+    $("#fTitle").value = c.title; $("#fNote").value = c.note;
+    $("#fColors").innerHTML = PAPERS.map(p=>
+      '<div class="sw'+(p===c.color?" sel":"")+'" data-c="'+p+'" style="background:'+swatchFill(p)+'"></div>').join("");
+    $("#fDur").innerHTML = DURS.map(d=>
+      '<div class="chip'+(d[0]===c.dur?" sel":"")+'" data-d="'+d[0]+'">'+d[1]+'</div>').join("");
+    $("#fUnplace").style.display = c.day===null ? "none" : "";
+    backdrop.classList.add("on"); sheet.classList.add("on");
+    if(isNew) setTimeout(()=>$("#fTitle").focus(), 220);
+  }
+  function closeEditor(){
+    const c = byId(editingId);
+    if(c){
+      c.title = $("#fTitle").value.trim();
+      c.note  = $("#fNote").value.trim();
+      if(!c.title && !c.note) c.title = "Ohne Titel";
+    }
+    editingId = null;
+    backdrop.classList.remove("on"); sheet.classList.remove("on");
+    render();
+  }
+  $("#fColors").addEventListener("click", e=>{
+    const s = e.target.closest(".sw"); if(!s) return;
+    byId(editingId).color = s.dataset.c;
+    [...$("#fColors").children].forEach(n=>n.classList.toggle("sel", n===s));
+  });
+  $("#fDur").addEventListener("click", e=>{
+    const ch = e.target.closest(".chip"); if(!ch) return;
+    const c = byId(editingId);
+    c.dur = Math.min(+ch.dataset.d, SLOTS - c.start);
+    [...$("#fDur").children].forEach(n=>n.classList.toggle("sel", +n.dataset.d===c.dur));
+  });
+  $("#fDone").addEventListener("click", closeEditor);
+  backdrop.addEventListener("click", ()=>{
+    if(menu.classList.contains("on")) closeMenu(); else closeEditor();
+  });
+  $("#fDelete").addEventListener("click", ()=>{
+    state.cards = state.cards.filter(c=>c.id!==editingId);
+    if(activeId === editingId) activeId = null;
+    editingId = null;
+    backdrop.classList.remove("on"); sheet.classList.remove("on");
+    render();
+  });
+  $("#fUnplace").addEventListener("click", ()=>{ byId(editingId).day = null; closeEditor(); });
+  $("#fTitle").addEventListener("keydown", e=>{ if(e.key==="Enter") closeEditor(); });
+
+  /* ---------- Kopfzeilen-Aktionen ---------- */
+  $("#addBtn").addEventListener("click", ()=>newCard());
+  $("#themeBtn").addEventListener("click", ()=>{
+    state.theme = state.theme === "paper" ? "clip" : "paper";
+    applyTheme(); measure(); render();
+  });
+  function applyTheme(){
+    document.documentElement.dataset.theme = state.theme;
+    const bar = getComputedStyle(document.documentElement).getPropertyValue("--topbar").trim();
+    document.querySelectorAll('meta[name="theme-color"]').forEach(m=>m.content = bar);
+  }
+  const menu = $("#menu");
+  function openMenu(){
+    $("#mWeekendState").textContent = state.weekend ? "an" : "aus";
+    backdrop.classList.add("on"); menu.classList.add("on");
+  }
+  function closeMenu(){ backdrop.classList.remove("on"); menu.classList.remove("on"); }
+  $("#moreBtn").addEventListener("click", openMenu);
+  $("#mClose").addEventListener("click", closeMenu);
+  $("#mWeekend").addEventListener("click", ()=>{
+    state.weekend = !state.weekend;
+    $("#mWeekendState").textContent = state.weekend ? "an" : "aus";
+    measure(); render();
+  });
+  $("#mClear").addEventListener("click", ()=>{
+    if(confirm("Alle Karten dieser Woche löschen?")){
+      state.cards = []; activeId = null; render(); closeMenu();
+    }
+  });
+  $("#mPdf").addEventListener("click", ()=>{ closeMenu(); exportAs("pdf"); });
+  $("#mJpg").addEventListener("click", ()=>{ closeMenu(); exportAs("jpeg"); });
+
+  window.addEventListener("resize", ()=>{ measure(); render(); });
+
+  /* ---------- Sichern als PDF oder JPEG ---------- */
+  // A4 quer bei rund 200 dpi
+  const EX_W = 2339, EX_H = 1654;
+
+  function cssVar(name){
+    return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  }
+
+  // Zeitausschnitt: nur der Bereich, in dem tatsächlich Karten liegen
+  function exportRange(){
+    const shown = state.cards.filter(c => c.day !== null && c.day < dayCount());
+    if(!shown.length) return { from: 4, to: 28 };          // 08:00–20:00
+    let from = Math.min(...shown.map(c => c.start)) - 1;
+    let to   = Math.max(...shown.map(c => c.start + c.dur)) + 1;
+    from = Math.max(0, from - (from % 2));                   // auf volle Stunden
+    to   = Math.min(SLOTS, to + (to % 2));
+    while(to - from < 12){                                   // mindestens sechs Stunden
+      if(from > 0) from -= 2; else if(to < SLOTS) to += 2; else break;
+    }
+    return { from, to };
+  }
+
+  function wrapText(ctx, text, maxW, maxLines){
+    const words = String(text).split(/\s+/).filter(Boolean);
+    const lines = [];
+    let line = "";
+    for(const w of words){
+      const test = line ? line + " " + w : w;
+      if(ctx.measureText(test).width > maxW && line){
+        lines.push(line); line = w;
+        if(lines.length === maxLines) return lines;
+      } else line = test;
+    }
+    if(line && lines.length < maxLines) lines.push(line);
+    return lines;
+  }
+
+  function drawExport(){
+    const cv = document.createElement("canvas");
+    cv.width = EX_W; cv.height = EX_H;
+    const ctx = cv.getContext("2d");
+    const paper = state.theme === "paper";
+    const days = dayCount();
+    const { from, to } = exportRange();
+    const rows = to - from;
+
+    const M = 54;                       // Außenrand
+    const titleH = 92;
+    const gut = 132;                    // Zeitleiste
+    const headH = 74;                   // Tagesleiste
+    const gridX = M + gut;
+    const gridY = M + titleH + headH;
+    const gridW = EX_W - M - gridX;
+    const gridH = EX_H - M - gridY;
+    const colW = gridW / days;
+    const rowH = gridH / rows;
+
+    // Untergrund
+    ctx.fillStyle = paper ? cssVar("--kraft") : "#FFFFFF";
+    ctx.fillRect(0, 0, EX_W, EX_H);
+    ctx.fillStyle = cssVar("--kraft");
+    ctx.fillRect(M, M + titleH, EX_W - 2*M, EX_H - M - (M + titleH));
+
+    // Überschrift
+    ctx.fillStyle = cssVar("--ink");
+    ctx.textBaseline = "alphabetic";
+    ctx.font = paper ? "700 56px Caveat, cursive" : "700 38px Karla, sans-serif";
+    ctx.fillText("Wochenplan", M, M + 56);
+
+    // Tagesleiste
+    ctx.fillStyle = cssVar("--head");
+    ctx.fillRect(M, M + titleH, EX_W - 2*M, headH);
+    ctx.fillStyle = cssVar("--head-ink");
+    ctx.textAlign = "center";
+    ctx.font = paper ? "500 40px Caveat, cursive" : "600 25px Karla, sans-serif";
+    for(let d = 0; d < days; d++){
+      ctx.fillText(DAYS[d], gridX + colW*(d + .5), M + titleH + headH/2 + 14);
+    }
+
+    // Zeitleiste
+    ctx.fillStyle = cssVar("--kraft-dark");
+    ctx.fillRect(M, gridY, gut, gridH);
+    ctx.fillStyle = cssVar("--ink-soft");
+    ctx.textAlign = "right";
+    ctx.font = "700 22px Karla, sans-serif";
+    for(let sl = from; sl <= to; sl += 2){
+      const y = gridY + (sl - from)*rowH;
+      if(sl < to) ctx.fillText(hhmm(sl), gridX - 18, y + 26);
+    }
+
+    // Raster
+    ctx.lineWidth = 1;
+    for(let sl = from; sl <= to; sl += 1){
+      const y = Math.round(gridY + (sl - from)*rowH) + .5;
+      ctx.strokeStyle = (sl % 2 === 0) ? cssVar("--l1") : cssVar("--l2");
+      ctx.beginPath(); ctx.moveTo(gridX, y); ctx.lineTo(EX_W - M, y); ctx.stroke();
+    }
+    ctx.strokeStyle = cssVar("--l3");
+    for(let d = 0; d <= days; d++){
+      const x = Math.round(gridX + colW*d) + .5;
+      ctx.beginPath(); ctx.moveTo(x, gridY); ctx.lineTo(x, gridY + gridH); ctx.stroke();
+    }
+
+    // Karten
+    ctx.textAlign = "left";
+    for(let d = 0; d < days; d++){
+      const list = state.cards.filter(c => c.day === d)
+        .sort((a, b) => a.start - b.start || a.z - b.z);
+      list.forEach((c, i) => {
+        let over = 0;
+        for(let j = 0; j < i; j++){
+          const o = list[j];
+          if(o.start < c.start + c.dur && c.start < o.start + o.dur) over++;
+        }
+        const x = gridX + colW*d + 10 + over*14;
+        const y = gridY + (c.start - from)*rowH + 6 + over*11;
+        const w = colW - 26;
+        const h = c.dur*rowH - 12;
+        if(y + h < gridY || y > gridY + gridH) return;
+
+        ctx.save();
+        ctx.translate(x + w/2, y + h/2);
+        if(paper) ctx.rotate(tilt(c.id) * Math.PI/180);
+        ctx.translate(-w/2, -h/2);
+
+        // Form
+        ctx.beginPath();
+        if(paper){
+          cutPoints(c.id).forEach((pt, k) => {
+            const px = pt[0]/100*w, py = pt[1]/100*h;
+            k ? ctx.lineTo(px, py) : ctx.moveTo(px, py);
+          });
+          ctx.closePath();
+        } else {
+          const r = 14;
+          ctx.moveTo(r, 0); ctx.arcTo(w, 0, w, h, r); ctx.arcTo(w, h, 0, h, r);
+          ctx.arcTo(0, h, 0, 0, r); ctx.arcTo(0, 0, w, 0, r); ctx.closePath();
+        }
+        ctx.shadowColor = "rgba(40,30,15,.30)";
+        ctx.shadowBlur = 14; ctx.shadowOffsetY = 6;
+        const col = accent(c.color);
+        ctx.fillStyle = paper ? col : tint(col, CLIP_TINT);
+        ctx.fill();
+        ctx.shadowColor = "transparent";
+
+        // Text
+        ctx.save(); ctx.clip();
+        const padX = paper ? 16 : 18, padT = paper ? 40 : 34;
+        ctx.fillStyle = cssVar("--ink");
+        ctx.font = paper ? "500 38px Caveat, cursive" : "600 25px Karla, sans-serif";
+        const lh = paper ? 38 : 30;
+        const titleLines = wrapText(ctx, c.title || "Ohne Titel", w - padX*1.6, 3);
+        titleLines.forEach((ln, k) => ctx.fillText(ln, padX, padT + k*lh));
+        if(c.note){
+          ctx.fillStyle = cssVar("--ink-soft");
+          ctx.font = "400 21px Karla, sans-serif";
+          const noteY = padT + titleLines.length*lh + 6;
+          wrapText(ctx, c.note, w - padX*1.6, 2)
+            .forEach((ln, k) => ctx.fillText(ln, padX, noteY + k*25));
+        }
+        ctx.restore();
+        ctx.restore();
+      });
+    }
+    return cv;
+  }
+
+  function download(blob, name){
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = name; a.rel = "noopener";
+    document.body.appendChild(a); a.click();
+    setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 8000);
+  }
+
+  // Minimales PDF mit dem Bild als einziger Seite, A4 quer
+  function jpegToPdf(bytes, w, h){
+    const PW = 842, PH = 595;                       // A4 quer in Punkt
+    const parts = [], offsets = [];
+    let len = 0;
+    const enc = str => { const u = new Uint8Array(str.length);
+      for(let i = 0; i < str.length; i++) u[i] = str.charCodeAt(i) & 255; return u; };
+    const push = chunk => { parts.push(chunk); len += chunk.length; };
+    const obj = (n, body) => { offsets[n] = len; push(enc(n + " 0 obj\n" + body + "\nendobj\n")); };
+
+    push(enc("%PDF-1.4\n%\xE2\xE3\xCF\xD3\n"));
+    obj(1, "<< /Type /Catalog /Pages 2 0 R >>");
+    obj(2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>");
+    obj(3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 " + PW + " " + PH + "] " +
+           "/Resources << /XObject << /Im0 4 0 R >> >> /Contents 5 0 R >>");
+
+    offsets[4] = len;
+    push(enc("4 0 obj\n<< /Type /XObject /Subtype /Image /Width " + w + " /Height " + h +
+             " /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length " +
+             bytes.length + " >>\nstream\n"));
+    push(bytes);
+    push(enc("\nendstream\nendobj\n"));
+
+    const content = "q\n" + PW + " 0 0 " + PH + " 0 0 cm\n/Im0 Do\nQ\n";
+    obj(5, "<< /Length " + content.length + " >>\nstream\n" + content + "endstream");
+
+    const xref = len;
+    let x = "xref\n0 6\n0000000000 65535 f \n";
+    for(let i = 1; i <= 5; i++) x += String(offsets[i]).padStart(10, "0") + " 00000 n \n";
+    x += "trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n" + xref + "\n%%EOF\n";
+    push(enc(x));
+
+    const out = new Uint8Array(len);
+    let at = 0;
+    for(const c of parts){ out.set(c, at); at += c.length; }
+    return new Blob([out], { type: "application/pdf" });
+  }
+
+  async function exportAs(kind){
+    try{
+      if(document.fonts && document.fonts.ready) await document.fonts.ready;
+      const cv = drawExport();
+      const stamp = new Date().toISOString().slice(0, 10);
+      const blob = await new Promise(res => cv.toBlob(res, "image/jpeg", .92));
+      if(!blob) throw new Error("kein Bild");
+      if(kind === "jpeg"){
+        download(blob, "Wochenplan-" + stamp + ".jpg");
+      } else {
+        const bytes = new Uint8Array(await blob.arrayBuffer());
+        download(jpegToPdf(bytes, EX_W, EX_H), "Wochenplan-" + stamp + ".pdf");
+      }
+    }catch(err){
+      alert("Sichern hat nicht geklappt: " + err.message);
+    }
+  }
+
+  /* ---------- Start ---------- */
+  (async function init(){
+    await load();
+    if(!state.cards.length){
+      const demo = [
+        [0, 4, 4, "Team-Jour-fixe", "Küche, mit Kaffee", 0],
+        [0, 14, 3, "Konzept schreiben", "ohne Handy", 2],
+        [2, 8, 2, "Sport", "", 3],
+        [4, 22, 4, "Kino", "Tickets vorher", 5]
+      ];
+      demo.forEach(d=>state.cards.push({ id:state.seq++, title:d[3], note:d[4],
+        color:PAPERS[d[5]], day:d[0], start:d[1], dur:d[2], z:state.z++ }));
+      state.cards.push({ id:state.seq++, title:"Einkauf", note:"", color:PAPERS[6],
+        day:null, start:16, dur:2, z:state.z++ });
+    }
+    applyTheme(); measure(); render();
+    scroll.scrollTop = Math.max(0, PADT + (8-START_H)*ROWH*2 - 10);
+  })();
+})();
+</script>
