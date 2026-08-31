@@ -452,7 +452,7 @@
     <span>Spaltenbreite</span>
     <span class="pickers"><select id="mColW" aria-label="Spaltenbreite"></select></span>
   </div>
-  <div class="hint">Breiter bricht Titel seltener um, braucht auf schmalen Displays aber mehr Wischen zur Seite.</div>
+  <div class="hint">„An Titel anpassen“ macht die Spalten gerade so breit, dass das längste Titelwort in eine Zeile passt – auf schmalen Displays kostet das etwas Wischen zur Seite.</div>
   <button class="mi" id="mPdf"><span>Als PDF sichern</span><b>Querformat</b></button>
   <button class="mi" id="mJpg"><span>Als JPEG sichern</span><b>Bild</b></button>
   <button class="mi" id="mExport"><span>Plan als Datei sichern</span><b>.json</b></button>
@@ -477,6 +477,9 @@
   <div class="sheet-actions">
     <button class="btn" id="fCopy">Duplizieren</button>
     <button class="btn" id="fUnplace">In den Stapel</button>
+  </div>
+  <div class="sheet-actions tight">
+    <button class="btn" id="fEveryDay">Auf jeden Tag legen</button>
   </div>
   <div class="sheet-actions tight">
     <button class="btn danger" id="fDelete">Löschen</button>
@@ -549,7 +552,7 @@
 
   /* ---------- Zustand ---------- */
   const defaultState = () => ({ cards:[], seq:1, z:1, theme:"paper", weekend:true,
-                                 startQ:24, endQ:92, full:false, colMin:112, v:4 });
+                                 startQ:24, endQ:92, full:false, colFit:false, v:4 });
   let state = defaultState();
   let colW = 120, boardW = 0, canvasH = 0;
   let editingId = null, activeId = null;
@@ -683,10 +686,39 @@
     return h;
   }
 
+  // Mindestbreite einer Tagesspalte. Ist die Anpassung eingeschaltet, wird
+  // die Spalte so breit, dass das laengste Titelwort in eine Zeile passt -
+  // nicht breiter, damit nicht unnoetig zur Seite gewischt werden muss.
+  const COLW_BASE = 112, COLW_MAX = 260;
+  let colMin = COLW_BASE;
+  const messLatte = document.createElement("canvas").getContext("2d");
+
+  function titelSchrift(){
+    const gewicht = cssVar("--card-title-weight") || "400";
+    const groesse = cssVar("--card-title") || "19px";
+    return gewicht + " " + groesse + " " +
+           (state.theme === "clip" ? '"Karla", sans-serif' : '"Caveat", cursive');
+  }
+  function fitColMin(){
+    if(!state.colFit) return COLW_BASE;
+    messLatte.font = titelSchrift();
+    let breitestes = 0;
+    for(const c of state.cards){
+      if(c.day === null) continue;              // Stapelkarten stehen in keiner Spalte
+      // Nur an Leerzeichen trennen: ein Bindestrichwort wie "Team-Jour-fixe"
+      // soll ja gerade am Stueck bleiben.
+      for(const wort of String(c.title || "").split(/\s+/))
+        breitestes = Math.max(breitestes, messLatte.measureText(wort).width);
+    }
+    // Die Karte ist colW-14 breit, im Papier bleiben links und rechts je 8px Rand
+    return Math.max(COLW_BASE, Math.min(COLW_MAX, Math.ceil(breitestes) + 30));
+  }
+
   function measure(){
     const n = dayCount();
+    colMin = fitColMin();
     const avail = scroll.clientWidth - COL0 - PADR;
-    colW = Math.max(state.colMin, Math.min(190, Math.floor(avail/n)));
+    colW = Math.max(colMin, Math.min(190, Math.floor(avail/n)));
     if(colW*n < avail) colW = Math.floor(avail/n);
     boardW = COL0 + colW*n + PADR;
     board.style.width = boardW + "px";
@@ -721,6 +753,9 @@
   }
 
   function render(){
+    // Ein geaenderter oder geloeschter Titel kann die noetige Spaltenbreite
+    // verschieben, ohne dass measure() sonst je wieder liefe.
+    if(fitColMin() !== colMin) measure();
     // Stapel
     const loose = state.cards.filter(c=>c.day===null);
     trayStrip.innerHTML = loose.length ? "" : '<div class="tray-empty">Leer – tippe auf „+ Karte“</div>';
@@ -1138,6 +1173,25 @@
     byId(editingId).color = s.dataset.c;
     [...$("#fColors").children].forEach(n=>n.classList.toggle("sel", n===s));
   });
+  $("#fEveryDay").addEventListener("click", ()=>{
+    const c = byId(editingId); if(!c) return;
+    // laufende Eingaben zuerst in die Karte uebernehmen
+    c.title = $("#fTitle").value.trim();
+    c.note  = $("#fNote").value.trim();
+    if(c.day === null) c.day = 0;               // aus dem Stapel auf den Montag
+    // Ein Tag, der dieselbe Karte zur selben Zeit schon hat, bleibt unberuehrt -
+    // zweimal tippen legt also keine Stapel uebereinander.
+    const schonDa = d => state.cards.some(o => o.day === d && o.start === c.start &&
+                                               o.dur === c.dur && o.title === c.title);
+    for(let d = 0; d < dayCount(); d++){
+      if(d === c.day || schonDa(d)) continue;
+      state.cards.push(Object.assign({}, c, { id: state.seq++, day: d, z: state.z++ }));
+    }
+    activeId = c.id;
+    editingId = null;
+    backdrop.classList.remove("on"); sheet.classList.remove("on");
+    render();
+  });
   $("#fDur").addEventListener("click", e=>{
     const ch = e.target.closest(".chip"); if(!ch) return;
     const c = byId(editingId);
@@ -1223,10 +1277,10 @@
   }
   // Mindestbreite je Tagesspalte. Mehr Raum je Karte gegen umbrechende
   // Titel, auf Kosten von mehr Wischen zur Seite auf schmalen Displays.
-  const COLW_STEPS = [[112,"Normal"],[140,"Breiter"],[168,"Sehr breit"]];
   function fillColWPicker(){
-    $("#mColW").innerHTML = COLW_STEPS.map(([px,label])=>
-      '<option value="'+px+'"'+(px===state.colMin?" selected":"")+'>'+label+'</option>').join("");
+    $("#mColW").innerHTML =
+      '<option value="0"'+(state.colFit?"":" selected")+'>Normal</option>' +
+      '<option value="1"'+(state.colFit?" selected":"")+'>An Titel anpassen</option>';
   }
   function showOutsideNote(){
     const n = state.cards.filter(c => c.day !== null &&
@@ -1253,7 +1307,7 @@
     applyRange();
   });
   $("#mColW").addEventListener("change", e => {
-    state.colMin = +e.target.value; measure(); render();
+    state.colFit = e.target.value === "1"; measure(); render();
   });
 
   function openMenu(){
@@ -1577,6 +1631,10 @@
     document.documentElement.dataset.full = state.full ? "1" : "0";
     measure(); render();
     scroll.scrollTop = Math.max(0, PADT + (32 - first())*ROWH - 10);
+    // Solange Caveat noch nicht geladen ist, misst die Leinwand mit der
+    // Ersatzschrift - danach einmal nachrechnen.
+    if(document.fonts && document.fonts.ready)
+      document.fonts.ready.then(()=>{ measure(); render(); });
   })();
 })();
 </script>
