@@ -452,7 +452,7 @@
     <span>Spaltenbreite</span>
     <span class="pickers"><select id="mColW" aria-label="Spaltenbreite"></select></span>
   </div>
-  <div class="hint">„An Titel anpassen“ macht die Spalten gerade so breit, dass das längste Titelwort in eine Zeile passt – auf schmalen Displays kostet das etwas Wischen zur Seite.</div>
+  <div class="hint">„An Titel anpassen“ gibt gerade so viel Breite, dass das längste Titelwort in eine Zeile passt – oft nur wenige Pixel. „Breit“ und „Sehr breit“ ziehen die Spalten spürbar auseinander, dafür wird mehr zur Seite gewischt.</div>
   <button class="mi" id="mPdf"><span>Als PDF sichern</span><b>Querformat</b></button>
   <button class="mi" id="mJpg"><span>Als JPEG sichern</span><b>Bild</b></button>
   <button class="mi" id="mExport"><span>Plan als Datei sichern</span><b>.json</b></button>
@@ -552,7 +552,7 @@
 
   /* ---------- Zustand ---------- */
   const defaultState = () => ({ cards:[], seq:1, z:1, theme:"paper", weekend:true,
-                                 startQ:24, endQ:92, full:false, colFit:false, v:4 });
+                                 startQ:24, endQ:92, full:false, colMode:"normal", v:4 });
   let state = defaultState();
   let colW = 120, boardW = 0, canvasH = 0;
   let editingId = null, activeId = null;
@@ -689,7 +689,11 @@
   // Mindestbreite einer Tagesspalte. Ist die Anpassung eingeschaltet, wird
   // die Spalte so breit, dass das laengste Titelwort in eine Zeile passt -
   // nicht breiter, damit nicht unnoetig zur Seite gewischt werden muss.
+  // "anpassen" hebt nur die Mindestbreite an - das wirkt aber gar nicht, wenn
+  // die Spalten den Bildschirm ohnehin schon fuellen und damit breiter sind.
+  // "breit" und "sehr breit" strecken darum die tatsaechliche Breite.
   const COLW_BASE = 112, COLW_MAX = 260;
+  const COLW_ZOOM = { breit: 1.35, sehr: 1.7 };
   let colMin = COLW_BASE;
   const messLatte = document.createElement("canvas").getContext("2d");
 
@@ -700,7 +704,7 @@
            (state.theme === "clip" ? '"Karla", sans-serif' : '"Caveat", cursive');
   }
   function fitColMin(){
-    if(!state.colFit) return COLW_BASE;
+    if(state.colMode !== "anpassen") return COLW_BASE;
     messLatte.font = titelSchrift();
     let breitestes = 0;
     for(const c of state.cards){
@@ -720,6 +724,10 @@
     const avail = scroll.clientWidth - COL0 - PADR;
     colW = Math.max(colMin, Math.min(190, Math.floor(avail/n)));
     if(colW*n < avail) colW = Math.floor(avail/n);
+    // Die Streckung sitzt bewusst hinter dem Auffuellen: sonst bliebe sie auf
+    // breiten Bildschirmen wirkungslos, weil dort ohnehin aufgefuellt wird.
+    const zoom = COLW_ZOOM[state.colMode];
+    if(zoom) colW = Math.round(colW * zoom);
     boardW = COL0 + colW*n + PADR;
     board.style.width = boardW + "px";
     canvasH = PADT + rows()*ROWH + PADB + safeBottom();
@@ -1277,10 +1285,12 @@
   }
   // Mindestbreite je Tagesspalte. Mehr Raum je Karte gegen umbrechende
   // Titel, auf Kosten von mehr Wischen zur Seite auf schmalen Displays.
+  const COLW_MODI = [["normal","Normal"],["anpassen","An Titel anpassen"],
+                     ["breit","Breit"],["sehr","Sehr breit"]];
   function fillColWPicker(){
-    $("#mColW").innerHTML =
-      '<option value="0"'+(state.colFit?"":" selected")+'>Normal</option>' +
-      '<option value="1"'+(state.colFit?" selected":"")+'>An Titel anpassen</option>';
+    $("#mColW").innerHTML = COLW_MODI.map(([wert,text])=>
+      '<option value="'+wert+'"'+(wert===state.colMode?" selected":"")+'>'+text+'</option>'
+    ).join("");
   }
   function showOutsideNote(){
     const n = state.cards.filter(c => c.day !== null &&
@@ -1307,7 +1317,7 @@
     applyRange();
   });
   $("#mColW").addEventListener("change", e => {
-    state.colFit = e.target.value === "1"; measure(); render();
+    state.colMode = e.target.value; measure(); render();
   });
 
   function openMenu(){
