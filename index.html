@@ -1429,9 +1429,15 @@
     ctx.fillStyle = cssVar("--ink-soft");
     ctx.textAlign = "right";
     ctx.font = "700 22px Karla, sans-serif";
+    // Die Uhrzeit soll mittig auf der Stundenlinie sitzen, nicht darunter.
+    // Ziffern haben keine Unterlänge, also liegt die optische Mitte auf der
+    // halben Oberlänge über der Grundlinie.
+    const mass = ctx.measureText("08:00");
+    const halbeZiffer = ((mass.actualBoundingBoxAscent || 16) -
+                         (mass.actualBoundingBoxDescent || 0)) / 2;
     for(let sl = from; sl <= to; sl += 4){
-      const y = gridY + (sl - from)*rowH;
-      if(sl < to) ctx.fillText(hhmm(sl), gridX - 18, y + 26);
+      const y = Math.round(gridY + (sl - from)*rowH);   // dieselbe Zeile wie die Linie
+      if(sl < to) ctx.fillText(hhmm(sl), gridX - 18, y + halbeZiffer);
     }
 
     // Raster: volle Stunde kräftig und doppelt so stark, halbe Stunde fein
