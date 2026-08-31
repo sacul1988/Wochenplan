@@ -448,6 +448,11 @@
     </span>
   </div>
   <div class="hint" id="mOutside" hidden></div>
+  <div class="mi range">
+    <span>Spaltenbreite</span>
+    <span class="pickers"><select id="mColW" aria-label="Spaltenbreite"></select></span>
+  </div>
+  <div class="hint">Breiter bricht Titel seltener um, braucht auf schmalen Displays aber mehr Wischen zur Seite.</div>
   <button class="mi" id="mPdf"><span>Als PDF sichern</span><b>Querformat</b></button>
   <button class="mi" id="mJpg"><span>Als JPEG sichern</span><b>Bild</b></button>
   <button class="mi" id="mExport"><span>Plan als Datei sichern</span><b>.json</b></button>
@@ -544,7 +549,7 @@
 
   /* ---------- Zustand ---------- */
   const defaultState = () => ({ cards:[], seq:1, z:1, theme:"paper", weekend:true,
-                                 startQ:24, endQ:92, full:false, v:4 });
+                                 startQ:24, endQ:92, full:false, colMin:112, v:4 });
   let state = defaultState();
   let colW = 120, boardW = 0, canvasH = 0;
   let editingId = null, activeId = null;
@@ -681,7 +686,7 @@
   function measure(){
     const n = dayCount();
     const avail = scroll.clientWidth - COL0 - PADR;
-    colW = Math.max(112, Math.min(190, Math.floor(avail/n)));
+    colW = Math.max(state.colMin, Math.min(190, Math.floor(avail/n)));
     if(colW*n < avail) colW = Math.floor(avail/n);
     boardW = COL0 + colW*n + PADR;
     board.style.width = boardW + "px";
@@ -1216,6 +1221,13 @@
     $("#mFrom").innerHTML = a;
     $("#mTo").innerHTML = b;
   }
+  // Mindestbreite je Tagesspalte. Mehr Raum je Karte gegen umbrechende
+  // Titel, auf Kosten von mehr Wischen zur Seite auf schmalen Displays.
+  const COLW_STEPS = [[112,"Normal"],[140,"Breiter"],[168,"Sehr breit"]];
+  function fillColWPicker(){
+    $("#mColW").innerHTML = COLW_STEPS.map(([px,label])=>
+      '<option value="'+px+'"'+(px===state.colMin?" selected":"")+'>'+label+'</option>').join("");
+  }
   function showOutsideNote(){
     const n = state.cards.filter(c => c.day !== null &&
       (c.start >= last() || c.start + c.dur <= first())).length;
@@ -1240,10 +1252,13 @@
       state.startQ = Math.max(0, state.endQ - MIN_SPANNE);
     applyRange();
   });
+  $("#mColW").addEventListener("change", e => {
+    state.colMin = +e.target.value; measure(); render();
+  });
 
   function openMenu(){
     $("#mWeekendState").textContent = state.weekend ? "an" : "aus";
-    fillRangePickers(); showOutsideNote();
+    fillRangePickers(); showOutsideNote(); fillColWPicker();
     backdrop.classList.add("on"); menu.classList.add("on");
   }
   function closeMenu(){ backdrop.classList.remove("on"); menu.classList.remove("on"); }
