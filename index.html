@@ -453,6 +453,7 @@
     <span class="pickers"><select id="mColW" aria-label="Spaltenbreite"></select></span>
   </div>
   <div class="hint">„An Titel anpassen“ gibt gerade so viel Breite, dass das längste Titelwort in eine Zeile passt – oft nur wenige Pixel. „Breit“ und „Sehr breit“ ziehen die Spalten spürbar auseinander, dafür wird mehr zur Seite gewischt.</div>
+  <button class="mi" id="mBw"><span>Schwarz-Weiß für Drucker</span><b id="mBwState">aus</b></button>
   <button class="mi" id="mPdf"><span>Als PDF sichern</span><b>Querformat</b></button>
   <button class="mi" id="mJpg"><span>Als JPEG sichern</span><b>Bild</b></button>
   <button class="mi" id="mExport"><span>Plan als Datei sichern</span><b>.json</b></button>
@@ -460,7 +461,7 @@
   <input type="file" id="mImportFile" accept="application/json,.json" hidden>
   <button class="mi warn" id="mClear"><span>Alle Karten löschen</span></button>
   <div class="sheet-actions"><button class="btn primary" id="mClose">Schließen</button></div>
-  <div class="hint">Gesichert wird der Ausschnitt, in dem Karten liegen – im Querformat auf A4, passend zum Ausdrucken.</div>
+  <div class="hint">Gesichert wird der Ausschnitt, in dem Karten liegen – im Querformat auf A4, passend zum Ausdrucken. Schwarz-Weiß liefert weiße Zettel mit schwarzem Rahmen statt farbiger Flächen, damit auf einem Graustufendrucker nichts zuläuft.</div>
   <div class="hint">Die Datei nimmt den ganzen Plan mit allen Karten und Einstellungen mit – zum Sichern oder für ein anderes Gerät. Laden ersetzt den Plan auf diesem Gerät.</div>
 </div>
 
@@ -552,7 +553,8 @@
 
   /* ---------- Zustand ---------- */
   const defaultState = () => ({ cards:[], seq:1, z:1, theme:"paper", weekend:true,
-                                 startQ:24, endQ:92, full:false, colMode:"normal", v:4 });
+                                 startQ:24, endQ:92, full:false, colMode:"normal",
+                                 bw:false, v:4 });
   let state = defaultState();
   let colW = 120, boardW = 0, canvasH = 0;
   let editingId = null, activeId = null;
@@ -1322,6 +1324,7 @@
 
   function openMenu(){
     $("#mWeekendState").textContent = state.weekend ? "an" : "aus";
+    $("#mBwState").textContent = state.bw ? "an" : "aus";
     fillRangePickers(); showOutsideNote(); fillColWPicker();
     backdrop.classList.add("on"); menu.classList.add("on");
   }
@@ -1337,6 +1340,11 @@
     if(confirm("Alle Karten dieser Woche löschen?")){
       state.cards = []; activeId = null; render(); closeMenu();
     }
+  });
+  $("#mBw").addEventListener("click", ()=>{
+    state.bw = !state.bw;
+    $("#mBwState").textContent = state.bw ? "an" : "aus";
+    save();
   });
   $("#mPdf").addEventListener("click", ()=>{ closeMenu(); exportAs("pdf"); });
   $("#mJpg").addEventListener("click", ()=>{ closeMenu(); exportAs("jpeg"); });
@@ -1411,22 +1419,41 @@
     const colW = gridW / days;
     const rowH = gridH / rows;
 
+    // Schwarz-Weiß fuer den Drucker: keine gefuellten Flaechen, sondern
+    // weisser Grund mit klaren schwarzen Kanten. Halbe Stunden werden
+    // gestrichelt statt grau - ein Grauton bricht auf einem reinen
+    // Schwarz-Weiss-Drucker zu einem unruhigen Punktmuster auf.
+    const sw = !!state.bw;
+    const F = {
+      grund:   sw ? "#FFFFFF" : (paper ? cssVar("--kraft") : "#FFFFFF"),
+      flaeche: sw ? "#FFFFFF" : cssVar("--kraft"),
+      kopf:    sw ? "#FFFFFF" : cssVar("--head"),
+      kopfInk: sw ? "#000000" : cssVar("--head-ink"),
+      leiste:  sw ? "#FFFFFF" : cssVar("--kraft-dark"),
+      zeit:    sw ? "#000000" : cssVar("--ink-soft"),
+      ink:     sw ? "#000000" : cssVar("--ink"),
+      inkSoft: sw ? "#333333" : cssVar("--ink-soft"),
+      l1:      sw ? "#000000" : cssVar("--l1"),
+      l2:      sw ? "#000000" : cssVar("--l2"),
+      l3:      sw ? "#000000" : cssVar("--l3")
+    };
+
     // Untergrund
-    ctx.fillStyle = paper ? cssVar("--kraft") : "#FFFFFF";
+    ctx.fillStyle = F.grund;
     ctx.fillRect(0, 0, EX_W, EX_H);
-    ctx.fillStyle = cssVar("--kraft");
+    ctx.fillStyle = F.flaeche;
     ctx.fillRect(M, M + titleH, EX_W - 2*M, EX_H - M - (M + titleH));
 
     // Überschrift
-    ctx.fillStyle = cssVar("--ink");
+    ctx.fillStyle = F.ink;
     ctx.textBaseline = "alphabetic";
     ctx.font = paper ? "700 56px Caveat, cursive" : "700 38px Karla, sans-serif";
     ctx.fillText("Wochenplan", M, M + 56);
 
     // Tagesleiste
-    ctx.fillStyle = cssVar("--head");
+    ctx.fillStyle = F.kopf;
     ctx.fillRect(M, M + titleH, EX_W - 2*M, headH);
-    ctx.fillStyle = cssVar("--head-ink");
+    ctx.fillStyle = F.kopfInk;
     ctx.textAlign = "center";
     ctx.font = paper ? "500 40px Caveat, cursive" : "600 25px Karla, sans-serif";
     for(let d = 0; d < days; d++){
@@ -1434,9 +1461,9 @@
     }
 
     // Zeitleiste
-    ctx.fillStyle = cssVar("--kraft-dark");
+    ctx.fillStyle = F.leiste;
     ctx.fillRect(M, gridY, gut, gridH);
-    ctx.fillStyle = cssVar("--ink-soft");
+    ctx.fillStyle = F.zeit;
     ctx.textAlign = "right";
     ctx.font = "700 22px Karla, sans-serif";
     // Die Uhrzeit soll mittig auf der Stundenlinie sitzen, nicht darunter.
@@ -1455,15 +1482,30 @@
       const voll = sl % 4 === 0;
       const yb = Math.round(gridY + (sl - from)*rowH);
       ctx.lineWidth   = voll ? 2 : 1;
-      ctx.strokeStyle = cssVar(voll ? "--l1" : "--l2");
+      ctx.strokeStyle = voll ? F.l1 : F.l2;
+      ctx.setLineDash(sw && !voll ? [7, 7] : []);
       const y = voll ? yb : yb + .5;              // dünne Linie auf halbe Pixel setzen
       ctx.beginPath(); ctx.moveTo(gridX, y); ctx.lineTo(EX_W - M, y); ctx.stroke();
     }
+    ctx.setLineDash([]);
     ctx.lineWidth = 1;
-    ctx.strokeStyle = cssVar("--l3");
+    ctx.strokeStyle = F.l3;
     for(let d = 0; d <= days; d++){
       const x = Math.round(gridX + colW*d) + .5;
       ctx.beginPath(); ctx.moveTo(x, gridY); ctx.lineTo(x, gridY + gridH); ctx.stroke();
+    }
+    if(sw){
+      // Ohne die Farbflaechen braucht die Tabelle eine sichtbare Aussenkante.
+      // Die Trennlinie unter der Tagesleiste zieht die Stundenschleife oben
+      // schon selbst - quer durch die Zeitleiste darf sie nicht, sonst
+      // streicht sie die oberste Uhrzeit durch.
+      ctx.lineWidth = 2; ctx.strokeStyle = "#000000";
+      ctx.strokeRect(M, gridY - headH, EX_W - 2*M, headH + gridH);
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(Math.round(gridX) + .5, gridY - headH);
+      ctx.lineTo(Math.round(gridX) + .5, gridY);
+      ctx.stroke();
     }
 
     // Karten
@@ -1501,12 +1543,20 @@
           ctx.moveTo(r, 0); ctx.arcTo(w, 0, w, h, r); ctx.arcTo(w, h, 0, h, r);
           ctx.arcTo(0, h, 0, 0, r); ctx.arcTo(0, 0, w, 0, r); ctx.closePath();
         }
-        ctx.shadowColor = "rgba(40,30,15,.30)";
-        ctx.shadowBlur = 14; ctx.shadowOffsetY = 6;
-        const col = accent(c.color);
-        ctx.fillStyle = paper ? col : tint(col, CLIP_TINT);
-        ctx.fill();
-        ctx.shadowColor = "transparent";
+        if(sw){
+          // Weisse Fuellung deckt das Raster ab, die Kante traegt die Form
+          ctx.fillStyle = "#FFFFFF";
+          ctx.fill();
+          ctx.lineWidth = 2.5; ctx.strokeStyle = "#000000";
+          ctx.setLineDash([]); ctx.stroke();
+        } else {
+          ctx.shadowColor = "rgba(40,30,15,.30)";
+          ctx.shadowBlur = 14; ctx.shadowOffsetY = 6;
+          const col = accent(c.color);
+          ctx.fillStyle = paper ? col : tint(col, CLIP_TINT);
+          ctx.fill();
+          ctx.shadowColor = "transparent";
+        }
 
         // Text
         ctx.save(); ctx.clip();
@@ -1516,13 +1566,13 @@
         const flach = h < 70;
         const padX = paper ? 16 : 18;
         const padT = flach ? (paper ? 26 : 22) : (paper ? 40 : 34);
-        ctx.fillStyle = cssVar("--ink");
+        ctx.fillStyle = F.ink;
         ctx.font = paper ? "500 38px Caveat, cursive" : "600 25px Karla, sans-serif";
         const lh = paper ? 38 : 30;
         const titleLines = wrapText(ctx, c.title || "Ohne Titel", w - padX*1.6, flach ? 2 : 3);
         titleLines.forEach((ln, k) => ctx.fillText(ln, padX, padT + k*lh));
         if(c.note && !flach){
-          ctx.fillStyle = cssVar("--ink-soft");
+          ctx.fillStyle = F.inkSoft;
           ctx.font = "400 21px Karla, sans-serif";
           const noteY = padT + titleLines.length*lh + 6;
           wrapText(ctx, c.note, w - padX*1.6, 2)
